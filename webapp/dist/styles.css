@@ -1,9 +1,12 @@
+html,
 body {
+  margin: 0;
   font-family: 'Open Sans', sans-serif;
   font-weight: 200;
 }
 .splash-container {
   display: flex;
+  min-height: 100vh;
   align-items: center;
   justify-content: center;
 }
@@ -14,4 +17,37 @@ body {
   color: white;
   font-size: 24px;
   text-align: center;
+}
+.appLayout {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+.appLayout-header {
+  background-color: #494747;
+  color: white;
+  padding: 10px;
+  font-size: 18px;
+}
+.appLayout-content {
+  padding: 10px;
+  font-size: 16px;
+  flex: 1;
+}
+.appLayout-footer {
+  background-color: #494747;
+  color: white;
+  padding: 10px;
+}
+.appLayout-footer a {
+  color: white;
+}
+.tileset {
+  display: flex;
+  flex-direction: column;
+}
+.tileset-item {
+  height: 250px;
+  border: 1px solid #494747;
+  margin: 10px;
 }

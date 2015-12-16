@@ -1,12 +1,14 @@
 @background: #494747;
 
-body {
+html,body {
+  margin: 0;
   font-family: 'Open Sans', sans-serif;
   font-weight: 200;
 }
 
 .splash-container {
   display: flex;
+  min-height: 100vh;
   align-items: center;
   justify-content: center;
 
@@ -17,5 +19,45 @@ body {
     color: white;
     font-size: 24px;
     text-align: center;
+  }
+}
+
+.appLayout {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+
+  &-header {
+    background-color: @background;
+    color: white;
+    padding: 10px;
+    font-size: 18px;
+  }
+
+  &-content {
+    padding: 10px;
+    font-size: 16px;
+    flex: 1;
+  }
+
+  &-footer {
+    background-color: @background;
+    color: white;
+    padding: 10px;
+
+    a {
+      color: white;
+    }
+  }
+}
+
+.tileset {
+  display: flex;
+  flex-direction: column;
+
+  &-item {
+	height: 250px;
+	border: 1px solid @background;
+	margin: 10px;
   }
 }
