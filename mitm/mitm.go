@@ -55,7 +55,7 @@ func main() {
 	urlStr := flag.String("url", "http://localhost:8080", "MMS Backend URL")
 	flag.Parse()
 
-	url, err := url.Parse(*urlStr)
+	mmsUrl, err := url.Parse(*urlStr)
 
 	if err != nil {
         panic("Could not parse url: " + err.Error())
@@ -71,7 +71,7 @@ func main() {
         http.ListenAndServe(":12345", nil)
     }()
 
-	proxy := httputil.NewSingleHostReverseProxy(url)
+	proxy := httputil.NewSingleHostReverseProxy(mmsUrl)
 
 	// override director to intercept request body
 	oldDirector := proxy.Director
@@ -84,9 +84,26 @@ func main() {
 			err := json.Unmarshal(buf, &jsonData)
 
 			if err == nil {
+                requestUrlStr := request.URL.String()
+                queryParams, _ := url.ParseQuery(request.URL.RawQuery)
+
                 // copy jsonData to websocket listeners
-                message <- jsonData
-				fmt.Println(jsonData)
+                wrapper := make(map[string]interface{})
+                wrapper["remoteAddr"] = request.RemoteAddr
+                wrapper["ah"] = queryParams.Get("ah")
+                wrapper["type"] = nil
+
+                if strings.Index(requestUrlStr, "/agents/api/automation/metrics") == 0 {
+                    wrapper["type"] = "metrics"
+                } else if strings.Index(requestUrlStr, "/agents/api/automation/status") == 0 {
+                    wrapper["type"] = "status"
+                } else if strings.Index(requestUrlStr, "/agents/api/automation/log") == 0 {
+                    wrapper["type"] = "log"
+                }
+
+                wrapper["content"] = jsonData
+                message <- wrapper
+				//fmt.Println(jsonData)
 			}
 
 			request.Body = ioutil.NopCloser(bytes.NewReader(buf))
