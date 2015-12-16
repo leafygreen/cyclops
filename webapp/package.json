@@ -1,0 +1,42 @@
+{
+  "name": "cyclops",
+  "version": "1.0.0",
+  "description": "Proxy server between Cloud|Ops Manager Agents and Servers with web application serving real time dashboard",
+  "scripts": {
+    "test": "gulp test",
+    "check": "gulp lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leafygreen/cyclops.git"
+  },
+  "keywords": [
+    "Cloud Manager",
+    "Ops Manager",
+    "MMS",
+    "agents",
+    "dashboard"
+  ],
+  "contributors": [
+    "Dennis Kuczynski <dennis.kuczynski@mongodb.com>",
+    "Stephen Lee <slee@mongodb.com>"
+  ],
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/leafygreen/cyclops/issues"
+  },
+  "homepage": "https://github.com/leafygreen/cyclops#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "babel-preset-es2015": "^6.3.13",
+    "babel-register": "^6.3.13",
+    "babelify": "^7.2.0",
+    "browserify": "^12.0.1",
+    "gulp": "^3.9.0",
+    "gulp-jscs": "^3.0.2",
+    "gulp-jshint": "^2.0.0",
+    "gulp-less": "^3.0.5",
+    "jshint": "^2.8.0",
+    "vinyl-source-stream": "^1.1.0"
+  }
+}
