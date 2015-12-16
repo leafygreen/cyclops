@@ -1,3 +1,17 @@
-.thing {
-  color: blue;
+body {
+  font-family: 'Open Sans', sans-serif;
+  font-weight: 200;
+}
+.splash-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.splash-container-content {
+  width: 600px;
+  padding: 20px;
+  background-color: #494747;
+  color: white;
+  font-size: 24px;
+  text-align: center;
 }
