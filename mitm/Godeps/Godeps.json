@@ -1,0 +1,10 @@
+{
+	"ImportPath": ".",
+	"GoVersion": "go1.5.2",
+	"Deps": [
+		{
+			"ImportPath": "golang.org/x/net/websocket",
+			"Rev": "c24de9d546a52d43325a0e37cc7ab02d92c7fb6f"
+		}
+	]
+}
