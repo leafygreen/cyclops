@@ -18,7 +18,6 @@ module.exports = Marionette.ItemView.extend({
 
     setPoller: function() {
         this.pollerId = setTimeout(() => {
-            console.log('attempting re-render');
             this.render();
             this.setPoller();
         }, 5000);

@@ -1,3 +1,13 @@
 Hostname: {{hostname}}
 Last Ping: {{lastPing}}
 <button name="view-logs">View Logs</button>
+<hr/>
+{{#each processDataCollection}}
+  Name: {{name}}
+  Goal Version: {{lastGoalVersionAchieved}}
+  Error Code: {{errorCode}}
+  Plan: {{plan}}
+  <br/>
+{{else}}
+  No processes
+{{/each}}

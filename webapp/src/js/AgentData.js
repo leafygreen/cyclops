@@ -2,16 +2,23 @@
 
 const Backbone = require('backbone');
 
+const ProcessData = require('./ProcessData');
+const ProcessDataCollection = Backbone.Collection.extend({
+    model: ProcessData,
+    comparator: 'name'
+});
+
 module.exports = Backbone.Model.extend({
     defaults: {
         hostname: null,
         lastPing: null,
-        logs: []
+        logs: [],
+        processMap: {},
+        processDataCollection: new ProcessDataCollection()
     },
 
     handleMessage: function(type, content) {
         this.set('lastPing', new Date().getTime());
-        console.log('handling', type, content);
         switch (type) {
             case 'status': this.handleStatusMessage(content); break;
             case 'log': this.handleLogMessage(content); break;
@@ -20,7 +27,10 @@ module.exports = Backbone.Model.extend({
     },
 
     handleStatusMessage: function(content) {
-
+        content.forEach(status => {
+            const processData = this._findOrCreateProcessData(status.name);
+            processData.handleStatus(status);
+        });
     },
 
     handleLogMessage: function(content) {
@@ -29,5 +39,17 @@ module.exports = Backbone.Model.extend({
 
     handleMetricsMessage: function(content) {
 
-    }
+    },
+
+    _findOrCreateProcessData: function(name) {
+        const processMap = this.get('processMap');
+        let processData = processMap[name];
+        if (!processData) {
+            processData = new ProcessData({ name });
+            processMap[name] = processData;
+            this.get('processDataCollection').add(processData);
+        }
+
+        return processData;
+    },
 });
