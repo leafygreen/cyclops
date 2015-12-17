@@ -23,7 +23,10 @@ module.exports = Backbone.Model.extend({
         diskMap: {},
         diskDataCollection: new DiskDataCollection(),
         platform: {},
-        cpuMetrics: []
+        cpuMetrics: [],
+        sampleTime: null,
+        cpuTimeKernel: null,
+        cpuTimeUser: null,
     },
 
     handleMessage: function(type, content) {
@@ -54,6 +57,11 @@ module.exports = Backbone.Model.extend({
 
         this.set('platform', platform);
         this.get('cpuMetrics').push(systemCpuMetrics);
+        this.set({
+            sampleTime: new Date(systemCpuMetrics.sampleTime).toISOString(),
+            cpuTimeKernel: systemCpuMetrics.kernel,
+            cpuTimeUser: systemCpuMetrics.user
+        });
 
         Object.keys(processCpuMetrics).forEach(name => {
             const processData = this._findOrCreateProcessData(name);

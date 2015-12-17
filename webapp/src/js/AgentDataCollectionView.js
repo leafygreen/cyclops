@@ -16,6 +16,6 @@ module.exports = Marionette.CollectionView.extend({
         this.pollerId = setTimeout(() => {
             this.render();
             this.setPoller();
-        }, 5000);
+        }, 2000);
     }
 });

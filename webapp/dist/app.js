@@ -32637,7 +32637,10 @@ module.exports = Backbone.Model.extend({
         diskMap: {},
         diskDataCollection: new DiskDataCollection(),
         platform: {},
-        cpuMetrics: []
+        cpuMetrics: [],
+        sampleTime: null,
+        cpuTimeKernel: null,
+        cpuTimeUser: null
     },
 
     handleMessage: function handleMessage(type, content) {
@@ -32675,6 +32678,11 @@ module.exports = Backbone.Model.extend({
 
         this.set('platform', platform);
         this.get('cpuMetrics').push(systemCpuMetrics);
+        this.set({
+            sampleTime: new Date(systemCpuMetrics.sampleTime).toISOString(),
+            cpuTimeKernel: systemCpuMetrics.kernel,
+            cpuTimeUser: systemCpuMetrics.user
+        });
 
         Object.keys(processCpuMetrics).forEach(function (name) {
             var processData = _this2._findOrCreateProcessData(name);
@@ -32733,7 +32741,7 @@ module.exports = Marionette.CollectionView.extend({
         this.pollerId = setTimeout(function () {
             _this.render();
             _this.setPoller();
-        }, 5000);
+        }, 2000);
     }
 });
 
@@ -32743,6 +32751,7 @@ module.exports = Marionette.CollectionView.extend({
 var $ = require('jquery');
 var _ = require('underscore');
 var Marionette = require('backbone.marionette');
+var Rickshaw = require('rickshaw');
 
 var AgentLogsOverlay = require('./AgentLogsOverlay');
 
@@ -32761,6 +32770,151 @@ module.exports = Marionette.ItemView.extend({
         });
     },
 
+    onRender: function onRender() {
+        var _this = this;
+
+        this._drawCpuMetricsChart();
+        this.model.get('processDataCollection').forEach(function (process) {
+            _this._drawProcessCpuMetricsChart(process);
+        });
+        this.model.get('diskDataCollection').forEach(function (disk) {
+            _this._drawDiskSpaceChart(disk);
+            _this._drawDiskReadWriteChart(disk);
+        });
+    },
+
+    _drawCpuMetricsChart: function _drawCpuMetricsChart() {
+        var palette = new Rickshaw.Color.Palette({ scheme: 'munin' });
+        var series = [{
+            name: 'kernel',
+            data: [],
+            color: palette.color()
+        }, {
+            name: 'user',
+            data: [],
+            color: palette.color()
+        }];
+
+        this.model.get('cpuMetrics').reduce(function (memo, datum) {
+            memo[0].data.push({
+                x: datum.sampleTime,
+                y: datum.kernel
+            });
+            memo[1].data.push({
+                x: datum.sampleTime,
+                y: datum.user
+            });
+            return memo;
+        }, series);
+
+        var graph = new Rickshaw.Graph({
+            element: this.$('.cpuChart').get(0),
+            width: 100,
+            height: 100,
+            series: series
+        });
+        graph.render();
+    },
+
+    _drawProcessCpuMetricsChart: function _drawProcessCpuMetricsChart(process) {
+        var palette = new Rickshaw.Color.Palette({ scheme: 'munin' });
+        var series = [{
+            name: 'kernel',
+            data: [],
+            color: palette.color()
+        }, {
+            name: 'user',
+            data: [],
+            color: palette.color()
+        }];
+
+        process.get('cpuMetrics').reduce(function (memo, datum) {
+            memo[0].data.push({
+                x: datum.sampleTime,
+                y: datum.kernel
+            });
+            memo[1].data.push({
+                x: datum.sampleTime,
+                y: datum.user
+            });
+            return memo;
+        }, series);
+
+        var graph = new Rickshaw.Graph({
+            element: this.$('.cpuChart' + process.get('name')).get(0),
+            width: 100,
+            height: 100,
+            series: series
+        });
+        graph.render();
+    },
+
+    _drawDiskSpaceChart: function _drawDiskSpaceChart(disk) {
+        var palette = new Rickshaw.Color.Palette({ scheme: 'munin' });
+        var series = [{
+            name: 'diskSpaceFree',
+            data: [],
+            color: palette.color()
+        }, {
+            name: 'diskSpaceUsed',
+            data: [],
+            color: palette.color()
+        }];
+
+        disk.get('diskMetrics').reduce(function (memo, datum) {
+            memo[0].data.push({
+                x: datum.sampleTime,
+                y: datum.diskSpaceFree
+            });
+            memo[1].data.push({
+                x: datum.sampleTime,
+                y: datum.diskSpaceUsed
+            });
+            return memo;
+        }, series);
+
+        var graph = new Rickshaw.Graph({
+            element: this.$('.diskSpaceChart' + disk.get('name')).get(0),
+            width: 100,
+            height: 100,
+            series: series
+        });
+        graph.render();
+    },
+
+    _drawDiskReadWriteChart: function _drawDiskReadWriteChart(disk) {
+        var palette = new Rickshaw.Color.Palette({ scheme: 'munin' });
+        var series = [{
+            name: 'readCount',
+            data: [],
+            color: palette.color()
+        }, {
+            name: 'writeCount',
+            data: [],
+            color: palette.color()
+        }];
+
+        disk.get('diskMetrics').reduce(function (memo, datum) {
+            memo[0].data.push({
+                x: datum.sampleTime,
+                y: datum.readCount
+            });
+            memo[1].data.push({
+                x: datum.sampleTime,
+                y: datum.writeCount
+            });
+            return memo;
+        }, series);
+
+        var graph = new Rickshaw.Graph({
+            element: this.$('.diskReadWriteChart' + disk.get('name')).get(0),
+            width: 100,
+            height: 100,
+            series: series
+        });
+        graph.render();
+    },
+
     onClickViewLogs: function onClickViewLogs() {
         var overlay = new AgentLogsOverlay({
             model: this.model
@@ -32769,7 +32923,7 @@ module.exports = Marionette.ItemView.extend({
     }
 });
 
-},{"./AgentLogsOverlay":34,"./agentData.hbs":39,"backbone.marionette":2,"jquery":28,"underscore":30}],34:[function(require,module,exports){
+},{"./AgentLogsOverlay":34,"./agentData.hbs":39,"backbone.marionette":2,"jquery":28,"rickshaw":29,"underscore":30}],34:[function(require,module,exports){
 'use strict';
 
 var _ = require('underscore');
@@ -32926,11 +33080,25 @@ var Backbone = require('backbone');
 module.exports = Backbone.Model.extend({
     defaults: {
         name: null,
-        diskMetrics: []
+        tags: [],
+        diskMetrics: [],
+        sampleTime: null,
+        diskSpaceUsed: null,
+        diskSpaceFree: null,
+        readCount: null,
+        writeCount: null
     },
 
     handleDiskMetrics: function handleDiskMetrics(metrics) {
         this.get('diskMetrics').push(metrics);
+        this.set({
+            tags: metrics.tags,
+            sampleTime: new Date(metrics.sampleTime).toISOString(),
+            diskSpaceUsed: metrics.diskSpaceUsed,
+            diskSpaceFree: metrics.diskSpaceFree,
+            readCount: metrics.readCount,
+            writeCount: metrics.writeCount
+        });
     }
 });
 
@@ -32945,7 +33113,10 @@ module.exports = Backbone.Model.extend({
         errorCode: 0,
         lastGoalVersionAchieved: -1,
         plan: null,
-        cpuMetrics: []
+        cpuMetrics: [],
+        sampleTime: null,
+        cpuTimeKernel: null,
+        cpuTimeUser: null
     },
 
     handleStatus: function handleStatus(status) {
@@ -32958,6 +33129,11 @@ module.exports = Backbone.Model.extend({
 
     handleCpuMetrics: function handleCpuMetrics(metrics) {
         this.get('cpuMetrics').push(metrics);
+        this.set({
+            sampleTime: new Date(metrics.sampleTime).toISOString(),
+            cpuTimeKernel: metrics.kernel,
+            cpuTimeUser: metrics.user
+        });
     }
 });
 
@@ -32965,53 +33141,93 @@ module.exports = Backbone.Model.extend({
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"1":function(container,depth0,helpers,partials,data) {
-    var stack1, alias1=container.lambda, alias2=container.escapeExpression;
-
-  return "  Platform: "
-    + alias2(alias1(((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.os : stack1), depth0))
-    + " "
-    + alias2(alias1(((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.arch : stack1), depth0))
-    + "\n";
-},"3":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
-  return "  Name: "
+  return "    <tr>\n      <td>"
     + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
-    + "\n  Goal Version: "
+    + "</td>\n      <td>"
     + alias4(((helper = (helper = helpers.lastGoalVersionAchieved || (depth0 != null ? depth0.lastGoalVersionAchieved : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastGoalVersionAchieved","hash":{},"data":data}) : helper)))
-    + "\n  Error Code: "
+    + "</td>\n      <td>"
     + alias4(((helper = (helper = helpers.errorCode || (depth0 != null ? depth0.errorCode : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"errorCode","hash":{},"data":data}) : helper)))
-    + "\n  Plan: "
-    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.plan : depth0),{"name":"each","hash":{},"fn":container.program(4, data, 0),"inverse":container.program(6, data, 0),"data":data})) != null ? stack1 : "")
-    + "\n  <br/>\n";
-},"4":function(container,depth0,helpers,partials,data) {
+    + "</th>\n      <td>"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.plan : depth0),{"name":"each","hash":{},"fn":container.program(2, data, 0),"inverse":container.program(4, data, 0),"data":data})) != null ? stack1 : "")
+    + "</td>\n      <td>"
+    + alias4(((helper = (helper = helpers.cpuTimeKernel || (depth0 != null ? depth0.cpuTimeKernel : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeKernel","hash":{},"data":data}) : helper)))
+    + "</td>\n      <td>"
+    + alias4(((helper = (helper = helpers.cpuTimeUser || (depth0 != null ? depth0.cpuTimeUser : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeUser","hash":{},"data":data}) : helper)))
+    + "</td>\n      <td>"
+    + alias4(((helper = (helper = helpers.sampleTime || (depth0 != null ? depth0.sampleTime : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"sampleTime","hash":{},"data":data}) : helper)))
+    + "</td>\n    </tr>\n";
+},"2":function(container,depth0,helpers,partials,data) {
     return container.escapeExpression(container.lambda(depth0, depth0))
     + " ";
-},"6":function(container,depth0,helpers,partials,data) {
+},"4":function(container,depth0,helpers,partials,data) {
     return "No Plan";
+},"6":function(container,depth0,helpers,partials,data) {
+    return "    <tr>\n      <td colspan=\"7\">Waiting for process information</td>\n";
 },"8":function(container,depth0,helpers,partials,data) {
-    return "  Waiting for process information\n";
-},"10":function(container,depth0,helpers,partials,data) {
-    var helper;
-
-  return "  Name: "
-    + container.escapeExpression(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : {},{"name":"name","hash":{},"data":data}) : helper)))
-    + "\n  <br/>\n";
-},"12":function(container,depth0,helpers,partials,data) {
-    return "  Waiting for disk information\n";
-},"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
-  return "<h2>Hostname: "
+  return "    <tr>\n      <td>"
+    + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
+    + "</td>\n      <td>"
+    + alias4(((helper = (helper = helpers.diskSpaceUsed || (depth0 != null ? depth0.diskSpaceUsed : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"diskSpaceUsed","hash":{},"data":data}) : helper)))
+    + "</th>\n      <td>"
+    + alias4(((helper = (helper = helpers.diskSpaceFree || (depth0 != null ? depth0.diskSpaceFree : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"diskSpaceFree","hash":{},"data":data}) : helper)))
+    + "</td>\n      <td>"
+    + alias4(((helper = (helper = helpers.readCount || (depth0 != null ? depth0.readCount : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"readCount","hash":{},"data":data}) : helper)))
+    + "</td>\n      <td>"
+    + alias4(((helper = (helper = helpers.writeCount || (depth0 != null ? depth0.writeCount : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"writeCount","hash":{},"data":data}) : helper)))
+    + "</td>\n      <td>"
+    + alias4(((helper = (helper = helpers.sampleTime || (depth0 != null ? depth0.sampleTime : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"sampleTime","hash":{},"data":data}) : helper)))
+    + "</th>\n      <td>"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.tags : depth0),{"name":"each","hash":{},"fn":container.program(2, data, 0),"inverse":container.program(9, data, 0),"data":data})) != null ? stack1 : "")
+    + "</td>\n    </tr>\n";
+},"9":function(container,depth0,helpers,partials,data) {
+    return "No Tags";
+},"11":function(container,depth0,helpers,partials,data) {
+    return "    <tr>\n      <td colspan=\"7\">Waiting for disk information</td>\n";
+},"13":function(container,depth0,helpers,partials,data) {
+    var helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
+
+  return "    <div class=\"chart-row-item\">\n      <div class=\"cpuChart"
+    + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
+    + "\"></div>\n      CPU Time (Process "
+    + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
+    + ")\n    </div>\n";
+},"15":function(container,depth0,helpers,partials,data) {
+    var helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
+
+  return "    <div class=\"chart-row-item\">\n      <div class=\"diskSpaceChart"
+    + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
+    + "\"></div>\n      Disk Space\n    </div>\n    <div class=\"chart-row-item\">\n      <div class=\"diskReadWriteChart"
+    + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
+    + "\"></div>\n      Reads/Writes\n    </div>\n";
+},"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
+    var stack1, helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression, alias5=container.lambda;
+
+  return "<h2 style=\"margin-top: 0;\">Hostname: "
     + alias4(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
-    + "</h2>\n<button name=\"view-logs\">View Logs</button>\n<br/>\n\nLast Ping: "
+    + " <button name=\"view-logs\">View Logs</button></h2>\n\n<table>\n  <tr>\n    <th>Last Ping</th>\n    <th>Platform</th>\n    <th>CPU Time (Kernel)</th>\n    <th>CPU Time (User)</th>\n    <th>Last Stats</th>\n  </tr>\n  <tr>\n    <td>"
     + alias4(((helper = (helper = helpers.lastPing || (depth0 != null ? depth0.lastPing : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastPing","hash":{},"data":data}) : helper)))
-    + "\n"
-    + ((stack1 = helpers["if"].call(alias1,((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.os : stack1),{"name":"if","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
-    + "\n<h2>Processes</h2>\n"
-    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.processDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(3, data, 0),"inverse":container.program(8, data, 0),"data":data})) != null ? stack1 : "")
-    + "\n<h2>CPU Metrics</h2>\nTODO\n\n<h2>Disks</h2>\n"
-    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.diskDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(10, data, 0),"inverse":container.program(12, data, 0),"data":data})) != null ? stack1 : "");
+    + "</td>\n    <td>"
+    + alias4(alias5(((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.os : stack1), depth0))
+    + " "
+    + alias4(alias5(((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.arch : stack1), depth0))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.cpuTimeKernel || (depth0 != null ? depth0.cpuTimeKernel : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeKernel","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.cpuTimeUser || (depth0 != null ? depth0.cpuTimeUser : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeUser","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.sampleTime || (depth0 != null ? depth0.sampleTime : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"sampleTime","hash":{},"data":data}) : helper)))
+    + "</td>\n</table>\n\n<table>\n  <caption>Processes</caption>\n  <tr>\n    <th>Process Name</th>\n    <th>Goal Version</th>\n    <th>Error Code</th>\n    <th>Plan</th>\n    <th>CPU Time (Kernel)</th>\n    <th>CPU Time (User)</th>\n    <th>Last Stats</th>\n  </tr>\n"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.processDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(6, data, 0),"data":data})) != null ? stack1 : "")
+    + "</table>\n\n<table>\n  <caption>Disks</caption>\n  <tr>\n    <th>Disk Name</th>\n    <th>Space Used</th>\n    <th>Space Free</th>\n    <th>Read Count</th>\n    <th>Write Count</th>\n    <th>Last Stats</th>\n    <th>Tags</th>\n  </tr>\n"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.diskDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(8, data, 0),"inverse":container.program(11, data, 0),"data":data})) != null ? stack1 : "")
+    + "</table>\n\n<div class=\"chart-row\">\n  <div class=\"chart-row-item\">\n    <div class=\"cpuChart\"></div>\n    CPU Time\n  </div>\n"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.processDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(13, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.diskDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(15, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
+    + " </div>\n";
 },"useData":true});
 
 },{"hbsfy/runtime":27}],40:[function(require,module,exports){
