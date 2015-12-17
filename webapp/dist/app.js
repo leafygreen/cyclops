@@ -32688,6 +32688,8 @@ module.exports = Marionette.ItemView.extend({
 },{"./AgentLogsOverlay":34,"./agentData.hbs":37,"backbone.marionette":2,"jquery":28}],34:[function(require,module,exports){
 'use strict';
 
+var _ = require('underscore');
+
 var Marionette = require('backbone.marionette');
 
 module.exports = Marionette.ItemView.extend({
@@ -32698,17 +32700,38 @@ module.exports = Marionette.ItemView.extend({
         'click button[name="close"]': 'closeOverlay'
     },
 
+    initialize: function initialize() {
+        this.setPoller();
+    },
+
+    setPoller: function setPoller() {
+        var _this = this;
+
+        this.pollerId = setTimeout(function () {
+            console.log('attempting re-render');
+            _this.render();
+            _this.setPoller();
+        }, 1000);
+    },
+
+    onDestroy: function onDestroy() {
+        clearTimeout(this.pollerId);
+    },
+
     closeOverlay: function closeOverlay() {
         this.destroy();
     },
 
     serializeData: function serializeData() {
-        console.log(this.model.attributes);
-        return this.model.attributes;
+        return _.extend({}, this.model.attributes, {
+            logs: this.model.attributes.logs.map(function (log) {
+                return JSON.stringify(log);
+            })
+        });
     }
 });
 
-},{"./agentLogsOverlay.hbs":38,"backbone.marionette":2}],35:[function(require,module,exports){
+},{"./agentLogsOverlay.hbs":38,"backbone.marionette":2,"underscore":30}],35:[function(require,module,exports){
 'use strict';
 
 var Marionette = require('backbone.marionette');
@@ -32829,17 +32852,18 @@ module.exports = HandlebarsCompiler.template({"compiler":[7,">= 4.0.0"],"main":f
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"1":function(container,depth0,helpers,partials,data) {
-    return "    "
+    return "  <div>"
     + container.escapeExpression(container.lambda(depth0, depth0))
-    + "\n";
+    + "</div>\n";
+},"3":function(container,depth0,helpers,partials,data) {
+    return "  <div>Waiting for logs...</div>\n";
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : {};
 
   return "<h1>Agent Logs for "
     + container.escapeExpression(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
-    + "</h1>\n<button name=\"close\">Close</button>\n\n<pre>\n"
-    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.logs : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
-    + "</pre>\n";
+    + "</h1>\n<button name=\"close\">Close</button>\n<hr/>\n\n"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.logs : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "");
 },"useData":true});
 
 },{"hbsfy/runtime":27}],39:[function(require,module,exports){
@@ -32858,7 +32882,7 @@ var AgentDataCollectionView = require('./AgentDataCollectionView');
 var ClopsStream = require('./ClopsStream');
 
 // Initialize MITM Stream
-var stream = new ClopsStream({ url: 'ws://localhost:12345' });
+var stream = new ClopsStream({ url: 'ws://localhost:9090/ws' });
 stream.createConnection();
 
 // Setup Routers
