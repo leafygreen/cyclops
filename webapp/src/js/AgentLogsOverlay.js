@@ -33,7 +33,11 @@ module.exports = Marionette.ItemView.extend({
 
     serializeData: function() {
         return _.extend({}, this.model.attributes, {
-            logs: this.model.attributes.logs.map(log => JSON.stringify(log))
+            logs: this.model.attributes.logs.map(log => {
+                return _.extend({}, log, {
+                    timestamp: new Date(log.timestamp).toISOString()
+                });
+            })
         });
     }
 });

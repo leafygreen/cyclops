@@ -27,6 +27,9 @@ module.exports = Backbone.Model.extend({
         sampleTime: null,
         cpuTimeKernel: null,
         cpuTimeUser: null,
+        cpuTimeIdle: null,
+        cpuTimeNice: null,
+        cpuUtilization: null
     },
 
     handleMessage: function(type, content) {
@@ -55,12 +58,30 @@ module.exports = Backbone.Model.extend({
         const processCpuMetrics = content.processCpuMetrics;
         const diskMetrics = content.diskMetrics;
 
+        const prevIdle = this.get('cpuTimeIdle');
+        const idle = systemCpuMetrics.idle;
+
+        const prevNonIdle = this.get('cpuTimeUser') + this.get('cpuTimeKernel') + this.get('cpuTimeNice');
+        const nonIdle = systemCpuMetrics.user + systemCpuMetrics.kernel + systemCpuMetrics.nice;
+
+        const prevTotal = prevIdle + prevNonIdle;
+        const total = idle + nonIdle;
+
+        // differentiate: actual value minus the previous one
+        const totald = total - prevTotal;
+        const idled = idle - prevIdle;
+
+        const cpuPercentage = (totald - idled) / totald;
+
         this.set('platform', platform);
         this.get('cpuMetrics').push(systemCpuMetrics);
         this.set({
             sampleTime: new Date(systemCpuMetrics.sampleTime).toISOString(),
             cpuTimeKernel: systemCpuMetrics.kernel,
-            cpuTimeUser: systemCpuMetrics.user
+            cpuTimeUser: systemCpuMetrics.user,
+            cpuTimeIdle: systemCpuMetrics.idle,
+            cpuTimeNice: systemCpuMetrics.nice,
+            cpuUtilization: cpuPercentage
         });
 
         Object.keys(processCpuMetrics).forEach(name => {

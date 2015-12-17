@@ -1,4 +1,5 @@
-<h2 style="margin-top: 0;">Hostname: {{hostname}} <button name="view-logs">View Logs</button></h2>
+<h2 style="margin-top: 0;">Hostname: {{hostname}}</h2>
+<button name="view-logs">View Logs</button>
 
 <table>
   <tr>
@@ -6,6 +7,9 @@
     <th>Platform</th>
     <th>CPU Time (Kernel)</th>
     <th>CPU Time (User)</th>
+    <th>CPU Time (Nice)</th>
+    <th>CPU Time (Idle)</th>
+    <th>CPU %</th>
     <th>Last Stats</th>
   </tr>
   <tr>
@@ -13,6 +17,9 @@
     <td>{{platform.os}} {{platform.arch}}</td>
     <td>{{cpuTimeKernel}}</td>
     <td>{{cpuTimeUser}}</td>
+    <td>{{cpuTimeNice}}</td>
+    <td>{{cpuTimeIdle}}</td>
+    <td>{{cpuUtilization}}</td>
     <td>{{sampleTime}}</td>
 </table>
 

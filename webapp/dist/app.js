@@ -32640,7 +32640,10 @@ module.exports = Backbone.Model.extend({
         cpuMetrics: [],
         sampleTime: null,
         cpuTimeKernel: null,
-        cpuTimeUser: null
+        cpuTimeUser: null,
+        cpuTimeIdle: null,
+        cpuTimeNice: null,
+        cpuUtilization: null
     },
 
     handleMessage: function handleMessage(type, content) {
@@ -32676,12 +32679,30 @@ module.exports = Backbone.Model.extend({
         var processCpuMetrics = content.processCpuMetrics;
         var diskMetrics = content.diskMetrics;
 
+        var prevIdle = this.get('cpuTimeIdle');
+        var idle = systemCpuMetrics.idle;
+
+        var prevNonIdle = this.get('cpuTimeUser') + this.get('cpuTimeKernel') + this.get('cpuTimeNice');
+        var nonIdle = systemCpuMetrics.user + systemCpuMetrics.kernel + systemCpuMetrics.nice;
+
+        var prevTotal = prevIdle + prevNonIdle;
+        var total = idle + nonIdle;
+
+        // differentiate: actual value minus the previous one
+        var totald = total - prevTotal;
+        var idled = idle - prevIdle;
+
+        var cpuPercentage = (totald - idled) / totald;
+
         this.set('platform', platform);
         this.get('cpuMetrics').push(systemCpuMetrics);
         this.set({
             sampleTime: new Date(systemCpuMetrics.sampleTime).toISOString(),
             cpuTimeKernel: systemCpuMetrics.kernel,
-            cpuTimeUser: systemCpuMetrics.user
+            cpuTimeUser: systemCpuMetrics.user,
+            cpuTimeIdle: systemCpuMetrics.idle,
+            cpuTimeNice: systemCpuMetrics.nice,
+            cpuUtilization: cpuPercentage
         });
 
         Object.keys(processCpuMetrics).forEach(function (name) {
@@ -32962,7 +32983,9 @@ module.exports = Marionette.ItemView.extend({
     serializeData: function serializeData() {
         return _.extend({}, this.model.attributes, {
             logs: this.model.attributes.logs.map(function (log) {
-                return JSON.stringify(log);
+                return _.extend({}, log, {
+                    timestamp: new Date(log.timestamp).toISOString()
+                });
             })
         });
     }
@@ -33208,7 +33231,7 @@ module.exports = HandlebarsCompiler.template({"1":function(container,depth0,help
 
   return "<h2 style=\"margin-top: 0;\">Hostname: "
     + alias4(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
-    + " <button name=\"view-logs\">View Logs</button></h2>\n\n<table>\n  <tr>\n    <th>Last Ping</th>\n    <th>Platform</th>\n    <th>CPU Time (Kernel)</th>\n    <th>CPU Time (User)</th>\n    <th>Last Stats</th>\n  </tr>\n  <tr>\n    <td>"
+    + "</h2>\n<button name=\"view-logs\">View Logs</button>\n\n<table>\n  <tr>\n    <th>Last Ping</th>\n    <th>Platform</th>\n    <th>CPU Time (Kernel)</th>\n    <th>CPU Time (User)</th>\n    <th>CPU Time (Nice)</th>\n    <th>CPU Time (Idle)</th>\n    <th>CPU %</th>\n    <th>Last Stats</th>\n  </tr>\n  <tr>\n    <td>"
     + alias4(((helper = (helper = helpers.lastPing || (depth0 != null ? depth0.lastPing : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastPing","hash":{},"data":data}) : helper)))
     + "</td>\n    <td>"
     + alias4(alias5(((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.os : stack1), depth0))
@@ -33218,6 +33241,12 @@ module.exports = HandlebarsCompiler.template({"1":function(container,depth0,help
     + alias4(((helper = (helper = helpers.cpuTimeKernel || (depth0 != null ? depth0.cpuTimeKernel : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeKernel","hash":{},"data":data}) : helper)))
     + "</td>\n    <td>"
     + alias4(((helper = (helper = helpers.cpuTimeUser || (depth0 != null ? depth0.cpuTimeUser : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeUser","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.cpuTimeNice || (depth0 != null ? depth0.cpuTimeNice : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeNice","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.cpuTimeIdle || (depth0 != null ? depth0.cpuTimeIdle : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeIdle","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.cpuUtilization || (depth0 != null ? depth0.cpuUtilization : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuUtilization","hash":{},"data":data}) : helper)))
     + "</td>\n    <td>"
     + alias4(((helper = (helper = helpers.sampleTime || (depth0 != null ? depth0.sampleTime : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"sampleTime","hash":{},"data":data}) : helper)))
     + "</td>\n</table>\n\n<table>\n  <caption>Processes</caption>\n  <tr>\n    <th>Process Name</th>\n    <th>Goal Version</th>\n    <th>Error Code</th>\n    <th>Plan</th>\n    <th>CPU Time (Kernel)</th>\n    <th>CPU Time (User)</th>\n    <th>Last Stats</th>\n  </tr>\n"
@@ -33234,17 +33263,33 @@ module.exports = HandlebarsCompiler.template({"1":function(container,depth0,help
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"1":function(container,depth0,helpers,partials,data) {
-    return "  <div>"
-    + container.escapeExpression(container.lambda(depth0, depth0))
-    + "</div>\n";
+    var helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
+
+  return "  <tr>\n    <td>"
+    + alias4(((helper = (helper = helpers.timestamp || (depth0 != null ? depth0.timestamp : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"timestamp","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.level || (depth0 != null ? depth0.level : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"level","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.processName || (depth0 != null ? depth0.processName : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"processName","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.thread || (depth0 != null ? depth0.thread : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"thread","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.logger || (depth0 != null ? depth0.logger : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"logger","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.message || (depth0 != null ? depth0.message : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"message","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.errorCode || (depth0 != null ? depth0.errorCode : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"errorCode","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.throwable || (depth0 != null ? depth0.throwable : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"throwable","hash":{},"data":data}) : helper)))
+    + "</td>\n  </tr>\n";
 },"3":function(container,depth0,helpers,partials,data) {
-    return "  <div>Waiting for logs...</div>\n";
+    return "  <tr>\n    <td colspan=\"8\">Waiting for logs...</td>\n   </tr>\n";
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : {};
 
   return "<h1>Agent Logs for "
     + container.escapeExpression(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
-    + "</h1>\n<button name=\"close\">Close</button>\n<hr/>\n\n"
+    + "</h1>\n<button name=\"close\">Close</button>\n<hr/>\n\n<table>\n  <tr>\n    <th>Time</th>\n    <th>Level</th>\n    <th>Process</th>\n    <th>Thread</th>\n    <th>Logger</th>\n    <th>Message</th>\n    <th>Error Code</th>\n    <th>Throwable</th>\n  </tr>\n"
     + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.logs : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "");
 },"useData":true});
 
