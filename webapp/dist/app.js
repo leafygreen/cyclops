@@ -32615,99 +32615,225 @@ Rickshaw.Series.FixedDuration = Rickshaw.Class.create(Rickshaw.Series, {
 'use strict';
 
 var Backbone = require('backbone');
+
+module.exports = Backbone.Model.extend({
+    defaults: {
+        hostname: null,
+        lastPing: null
+    },
+
+    handleMessage: function handleMessage(type, content) {
+        this.set('lastPing', new Date().getTime());
+        switch (type) {
+            case 'status':
+                this.handleStatusMessage(content);break;
+            case 'log':
+                this.handleLogMessage(content);break;
+            case 'metrics':
+                this.handleMetricsMessage(content);break;
+        }
+    },
+
+    handleStatusMessage: function handleStatusMessage(content) {},
+
+    handleLogMessage: function handleLogMessage(content) {},
+
+    handleMetricsMessage: function handleMetricsMessage(content) {}
+});
+
+},{"backbone":4}],32:[function(require,module,exports){
+'use strict';
+
 var Marionette = require('backbone.marionette');
 
+var AgentDataView = require('./AgentDataView');
+
+module.exports = Marionette.CollectionView.extend({
+    className: 'tileset',
+    childView: AgentDataView
+});
+
+},{"./AgentDataView":33,"backbone.marionette":2}],33:[function(require,module,exports){
+'use strict';
+
+var Marionette = require('backbone.marionette');
+
+module.exports = Marionette.ItemView.extend({
+    className: 'tileset-item',
+    template: require('./agentData.hbs'),
+
+    serializeData: function serializeData() {
+        return this.model.attributes;
+    }
+});
+
+},{"./agentData.hbs":36,"backbone.marionette":2}],34:[function(require,module,exports){
+'use strict';
+
+var Marionette = require('backbone.marionette');
+var Rickshaw = require('rickshaw');
+
+module.exports = Marionette.LayoutView.extend({
+    template: require('./appLayout.hbs'),
+
+    regions: {
+        content: '.appLayout-content'
+    },
+
+    showContent: function showContent(view) {
+        this.content.show(view);
+    }
+});
+
+},{"./appLayout.hbs":38,"backbone.marionette":2,"rickshaw":29}],35:[function(require,module,exports){
+'use strict';
+
+var $ = require('jquery');
+var _ = require('underscore');
+var Backbone = require('backbone');
+
+var AgentData = require('./AgentData');
+var AgentDataCollection = Backbone.Collection.extend({
+    model: AgentData,
+    comparator: 'hostname'
+});
+
+function ClopsStream(opts) {
+    this.url = opts.url;
+    this.connection = null;
+    this.hasInitialData = $.Deferred();
+    this.messageCount = 0;
+    this.agentMap = {};
+    this.agentCollection = new AgentDataCollection();
+};
+
+_.extend(ClopsStream.prototype, {
+    createConnection: function createConnection() {
+        var _arguments = arguments,
+            _this = this;
+
+        this.connection = new WebSocket(this.url);
+        this.connection.onopen = function () {
+            console.log('Websocket.onopen', _arguments);
+        };
+
+        this.connection.onerror = function () {
+            console.log('WebSocket.onerror', _arguments);
+        };
+
+        this.connection.onclose = function () {
+            console.log('WebSocket.onclose', _arguments);
+            setTimeout(_this.createConnection, 5000);
+        };
+
+        this.connection.onmessage = function (message) {
+            console.log('WebSocket.onmessage', message.data);
+            _this._storeAgentData(message);
+            _this._trackMessageCount();
+        };
+    },
+
+    _storeAgentData: function _storeAgentData(message) {
+        var data = JSON.parse(message.data);
+        var hostname = data.ah;
+        var type = data.type;
+        var content = data.content;
+        var agentData = this._findOrCreateAgentData(hostname);
+        agentData.handleMessage(type, content);
+    },
+
+    _findOrCreateAgentData: function _findOrCreateAgentData(hostname) {
+        var agentData = this.agentMap[hostname];
+        if (!agentData) {
+            agentData = new AgentData({ hostname: hostname });
+            console.log(agentData);
+            this.agentMap[hostname] = agentData;
+            this.agentCollection.add(agentData);
+        }
+
+        return agentData;
+    },
+
+    _trackMessageCount: function _trackMessageCount() {
+        this.messageCount++;
+        if (this.messageCount >= 1) {
+            this.hasInitialData.resolve();
+        }
+    },
+
+    getAgentDataCollection: function getAgentDataCollection() {
+        return this.agentCollection;
+    },
+
+    whenHasInitialData: function whenHasInitialData() {
+        return this.hasInitialData.promise();
+    }
+});
+
+module.exports = ClopsStream;
+
+},{"./AgentData":31,"backbone":4,"jquery":28,"underscore":30}],36:[function(require,module,exports){
+// hbsfy compiled Handlebars template
+var HandlebarsCompiler = require('hbsfy/runtime');
+module.exports = HandlebarsCompiler.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
+    var helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
+
+  return "Hostname: "
+    + alias4(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
+    + "\nLast Ping: "
+    + alias4(((helper = (helper = helpers.lastPing || (depth0 != null ? depth0.lastPing : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastPing","hash":{},"data":data}) : helper)))
+    + "\n";
+},"useData":true});
+
+},{"hbsfy/runtime":27}],37:[function(require,module,exports){
+'use strict';
+
+var Backbone = require('backbone');
+var Marionette = require('backbone.marionette');
 Marionette.Renderer = {
     render: function render(template, data, view) {
         return template(data);
     }
 };
 
-var Rickshaw = require('rickshaw');
+var AppLayout = require('./AppLayout');
+var AgentDataCollectionView = require('./AgentDataCollectionView');
+var ClopsStream = require('./ClopsStream');
 
-var AppLayout = Marionette.LayoutView.extend({
-    el: '#content',
+// Initialize MITM Stream
+var stream = new ClopsStream({ url: 'ws://localhost:12345' });
+stream.createConnection();
 
-    template: require('./appLayout.hbs'),
-
-    onRender: function onRender() {
-        var data = [{ x: 1450302119291, y: 40 }, { x: 1450302119391, y: 49 }, { x: 1450302119491, y: 17 }, { x: 1450302119591, y: 42 }];
-
-        var graph = new Rickshaw.Graph({
-            element: this.$('#chart').get(0),
-            width: 100,
-            height: 100,
-            series: [{
-                color: 'steelblue',
-                data: data
-            }]
-        });
-
-        var legend = this.$('#legend').get(0);
-
-        var Hover = Rickshaw.Class.create(Rickshaw.Graph.HoverDetail, {
-            render: function render(args) {
-                legend.innerHTML = args.formattedXValue;
-                args.detail.sort(function (a, b) {
-                    return a.order - b.order;
-                }).forEach(function (d) {
-                    var line = document.createElement('div');
-                    line.className = 'line';
-                    var swatch = document.createElement('div');
-                    swatch.className = 'swatch';
-                    swatch.style.backgroundColor = d.series.color;
-                    var label = document.createElement('div');
-                    label.className = 'label';
-                    label.innerHTML = d.name + ': ' + d.formattedYValue;
-                    line.appendChild(swatch);
-                    line.appendChild(label);
-                    legend.appendChild(line);
-                    var dot = document.createElement('div');
-                    dot.className = 'dot';
-                    dot.style.top = graph.y(d.value.y0 + d.value.y) + 'px';
-                    dot.style.borderColor = d.series.color;
-                    this.element.appendChild(dot);
-                    dot.className = 'dot active';
-                    this.show();
-                }, this);
-            }
-        });
-
-        graph.render();
-        var hover = new Hover({ graph: graph });
-
-        console.log('rendered', data);
-
-        setTimeout(function () {
-            data.push({ x: 1450302119691, y: 50 });
-            graph.render();
-            console.log('rerendered', data);
-        }, 1000);
-    }
-});
-
+// Setup Routers
 var Router = Backbone.Router.extend({
     routes: {
-        '*default': 'showAgentTable'
+        '*default': 'showAgentDataTable'
     },
 
-    showAgentTable: function showAgentTable() {
+    initialize: function initialize() {
+        this.region = new Marionette.Region({ el: '#content' });
+    },
+
+    showAgentDataTable: function showAgentDataTable() {
         var appLayout = new AppLayout();
-        appLayout.render();
+        this.region.show(appLayout);
+        appLayout.showContent(new AgentDataCollectionView({
+            collection: stream.getAgentDataCollection()
+        }));
     }
 });
 
 new Router();
 
-setTimeout(function () {
+stream.whenHasInitialData().then(function () {
     Backbone.history.start();
-}, 10);
+});
 
-},{"./appLayout.hbs":32,"backbone":4,"backbone.marionette":2,"rickshaw":29}],32:[function(require,module,exports){
+},{"./AgentDataCollectionView":32,"./AppLayout":34,"./ClopsStream":35,"backbone":4,"backbone.marionette":2}],38:[function(require,module,exports){
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
-    return "<div class=\"appLayout\">\n  <header class=\"appLayout-header\">\n    Cyclops\n  </header>\n\n  <div class=\"appLayout-content\">\n    <div class=\"tileset\">\n      <div class=\"tileset-item\">\n        Agent 1\n\n        <div id=\"chart\"></div>\n        <div id=\"legend\"></div>\n      </div>\n      <div class=\"tileset-item\">\n        Agent 2\n      </div>\n      <div class=\"tileset-item\">\n        Agent 3\n      </div>\n      <div class=\"tileset-item\">\n        Agent 4\n      </div>\n      <div class=\"tileset-item\">\n        Agent 5\n      </div>\n    </div>\n  </div>\n\n  <footer class=\"appLayout-footer\">\n    <a href=\"https://github.com/leafygreen/cyclops\" target=\"_blank\">https://github.com/leafygreen/cyclops</a>\n  </footer>\n </div>\n";
+    return "<div class=\"appLayout\">\n  <header class=\"appLayout-header\">\n    Cyclops\n  </header>\n\n  <div class=\"appLayout-content\"></div>\n\n  <footer class=\"appLayout-footer\">\n    <a href=\"https://github.com/leafygreen/cyclops\" target=\"_blank\">https://github.com/leafygreen/cyclops</a>\n  </footer>\n </div>\n";
 },"useData":true});
 
-},{"hbsfy/runtime":27}]},{},[31]);
+},{"hbsfy/runtime":27}]},{},[37]);
