@@ -6,5 +6,16 @@ const AgentDataView = require('./AgentDataView');
 
 module.exports = Marionette.CollectionView.extend({
     className: 'tileset',
-    childView: AgentDataView
+    childView: AgentDataView,
+
+    initialize: function() {
+        this.setPoller();
+    },
+
+    setPoller: function() {
+        this.pollerId = setTimeout(() => {
+            this.render();
+            this.setPoller();
+        }, 5000);
+    }
 });

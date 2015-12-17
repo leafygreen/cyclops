@@ -1,6 +1,7 @@
 'use strict';
 
 const $ = require('jquery');
+const _ = require('underscore');
 const Marionette = require('backbone.marionette');
 
 const AgentLogsOverlay = require('./AgentLogsOverlay');
@@ -14,7 +15,9 @@ module.exports = Marionette.ItemView.extend({
     },
 
     serializeData: function() {
-        return this.model.attributes;
+        return _.extend({}, this.model.attributes, {
+            processDataCollection: this.model.attributes.processDataCollection.toJSON()
+        });
     },
 
     onClickViewLogs: function() {

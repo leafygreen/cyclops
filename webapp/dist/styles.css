@@ -62,4 +62,5 @@ body {
   padding: 20px;
   z-index: 5;
   border: 1px solid #494747;
+  overflow: scroll;
 }

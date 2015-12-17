@@ -32616,16 +32616,23 @@ Rickshaw.Series.FixedDuration = Rickshaw.Class.create(Rickshaw.Series, {
 
 var Backbone = require('backbone');
 
+var ProcessData = require('./ProcessData');
+var ProcessDataCollection = Backbone.Collection.extend({
+    model: ProcessData,
+    comparator: 'name'
+});
+
 module.exports = Backbone.Model.extend({
     defaults: {
         hostname: null,
         lastPing: null,
-        logs: []
+        logs: [],
+        processMap: {},
+        processDataCollection: new ProcessDataCollection()
     },
 
     handleMessage: function handleMessage(type, content) {
         this.set('lastPing', new Date().getTime());
-        console.log('handling', type, content);
         switch (type) {
             case 'status':
                 this.handleStatusMessage(content);break;
@@ -32636,16 +32643,35 @@ module.exports = Backbone.Model.extend({
         }
     },
 
-    handleStatusMessage: function handleStatusMessage(content) {},
+    handleStatusMessage: function handleStatusMessage(content) {
+        var _this = this;
+
+        content.forEach(function (status) {
+            var processData = _this._findOrCreateProcessData(status.name);
+            processData.handleStatus(status);
+        });
+    },
 
     handleLogMessage: function handleLogMessage(content) {
         this.set('logs', this.get('logs').concat(content));
     },
 
-    handleMetricsMessage: function handleMetricsMessage(content) {}
+    handleMetricsMessage: function handleMetricsMessage(content) {},
+
+    _findOrCreateProcessData: function _findOrCreateProcessData(name) {
+        var processMap = this.get('processMap');
+        var processData = processMap[name];
+        if (!processData) {
+            processData = new ProcessData({ name: name });
+            processMap[name] = processData;
+            this.get('processDataCollection').add(processData);
+        }
+
+        return processData;
+    }
 });
 
-},{"backbone":4}],32:[function(require,module,exports){
+},{"./ProcessData":37,"backbone":4}],32:[function(require,module,exports){
 'use strict';
 
 var Marionette = require('backbone.marionette');
@@ -32654,13 +32680,27 @@ var AgentDataView = require('./AgentDataView');
 
 module.exports = Marionette.CollectionView.extend({
     className: 'tileset',
-    childView: AgentDataView
+    childView: AgentDataView,
+
+    initialize: function initialize() {
+        this.setPoller();
+    },
+
+    setPoller: function setPoller() {
+        var _this = this;
+
+        this.pollerId = setTimeout(function () {
+            _this.render();
+            _this.setPoller();
+        }, 5000);
+    }
 });
 
 },{"./AgentDataView":33,"backbone.marionette":2}],33:[function(require,module,exports){
 'use strict';
 
 var $ = require('jquery');
+var _ = require('underscore');
 var Marionette = require('backbone.marionette');
 
 var AgentLogsOverlay = require('./AgentLogsOverlay');
@@ -32674,7 +32714,9 @@ module.exports = Marionette.ItemView.extend({
     },
 
     serializeData: function serializeData() {
-        return this.model.attributes;
+        return _.extend({}, this.model.attributes, {
+            processDataCollection: this.model.attributes.processDataCollection.toJSON()
+        });
     },
 
     onClickViewLogs: function onClickViewLogs() {
@@ -32685,7 +32727,7 @@ module.exports = Marionette.ItemView.extend({
     }
 });
 
-},{"./AgentLogsOverlay":34,"./agentData.hbs":37,"backbone.marionette":2,"jquery":28}],34:[function(require,module,exports){
+},{"./AgentLogsOverlay":34,"./agentData.hbs":38,"backbone.marionette":2,"jquery":28,"underscore":30}],34:[function(require,module,exports){
 'use strict';
 
 var _ = require('underscore');
@@ -32708,10 +32750,9 @@ module.exports = Marionette.ItemView.extend({
         var _this = this;
 
         this.pollerId = setTimeout(function () {
-            console.log('attempting re-render');
             _this.render();
             _this.setPoller();
-        }, 1000);
+        }, 5000);
     },
 
     onDestroy: function onDestroy() {
@@ -32731,7 +32772,7 @@ module.exports = Marionette.ItemView.extend({
     }
 });
 
-},{"./agentLogsOverlay.hbs":38,"backbone.marionette":2,"underscore":30}],35:[function(require,module,exports){
+},{"./agentLogsOverlay.hbs":39,"backbone.marionette":2,"underscore":30}],35:[function(require,module,exports){
 'use strict';
 
 var Marionette = require('backbone.marionette');
@@ -32749,7 +32790,7 @@ module.exports = Marionette.LayoutView.extend({
     }
 });
 
-},{"./appLayout.hbs":40,"backbone.marionette":2,"rickshaw":29}],36:[function(require,module,exports){
+},{"./appLayout.hbs":41,"backbone.marionette":2,"rickshaw":29}],36:[function(require,module,exports){
 'use strict';
 
 var $ = require('jquery');
@@ -32836,19 +32877,56 @@ _.extend(ClopsStream.prototype, {
 module.exports = ClopsStream;
 
 },{"./AgentData":31,"backbone":4,"jquery":28,"underscore":30}],37:[function(require,module,exports){
+'use strict';
+
+var Backbone = require('backbone');
+
+module.exports = Backbone.Model.extend({
+    defaults: {
+        name: null,
+        errorCode: 0,
+        lastGoalVersionAchieved: -1,
+        plan: null
+    },
+
+    handleStatus: function handleStatus(status) {
+        this.set({
+            errorCode: status.errorCode,
+            lastGoalVersionAchieved: status.lastGoalVersionAchieved,
+            plan: status.plan
+        });
+    }
+});
+
+},{"backbone":4}],38:[function(require,module,exports){
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
-module.exports = HandlebarsCompiler.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
+module.exports = HandlebarsCompiler.template({"1":function(container,depth0,helpers,partials,data) {
     var helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
+
+  return "  Name: "
+    + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
+    + "\n  Goal Version: "
+    + alias4(((helper = (helper = helpers.lastGoalVersionAchieved || (depth0 != null ? depth0.lastGoalVersionAchieved : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastGoalVersionAchieved","hash":{},"data":data}) : helper)))
+    + "\n  Error Code: "
+    + alias4(((helper = (helper = helpers.errorCode || (depth0 != null ? depth0.errorCode : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"errorCode","hash":{},"data":data}) : helper)))
+    + "\n  Plan: "
+    + alias4(((helper = (helper = helpers.plan || (depth0 != null ? depth0.plan : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"plan","hash":{},"data":data}) : helper)))
+    + "\n";
+},"3":function(container,depth0,helpers,partials,data) {
+    return "  No processes\n";
+},"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
+    var stack1, helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
   return "Hostname: "
     + alias4(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
     + "\nLast Ping: "
     + alias4(((helper = (helper = helpers.lastPing || (depth0 != null ? depth0.lastPing : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastPing","hash":{},"data":data}) : helper)))
-    + "\n<button name=\"view-logs\">View Logs</button>\n";
+    + "\n<button name=\"view-logs\">View Logs</button>\n<hr/>\n"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.processDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "");
 },"useData":true});
 
-},{"hbsfy/runtime":27}],38:[function(require,module,exports){
+},{"hbsfy/runtime":27}],39:[function(require,module,exports){
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"1":function(container,depth0,helpers,partials,data) {
@@ -32866,7 +32944,7 @@ module.exports = HandlebarsCompiler.template({"1":function(container,depth0,help
     + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.logs : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "");
 },"useData":true});
 
-},{"hbsfy/runtime":27}],39:[function(require,module,exports){
+},{"hbsfy/runtime":27}],40:[function(require,module,exports){
 'use strict';
 
 var Backbone = require('backbone');
@@ -32910,11 +32988,11 @@ stream.whenHasInitialData().then(function () {
     Backbone.history.start();
 });
 
-},{"./AgentDataCollectionView":32,"./AppLayout":35,"./ClopsStream":36,"backbone":4,"backbone.marionette":2}],40:[function(require,module,exports){
+},{"./AgentDataCollectionView":32,"./AppLayout":35,"./ClopsStream":36,"backbone":4,"backbone.marionette":2}],41:[function(require,module,exports){
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     return "<div class=\"appLayout\">\n  <header class=\"appLayout-header\">\n    Cyclops\n  </header>\n\n  <div class=\"appLayout-content\"></div>\n\n  <footer class=\"appLayout-footer\">\n    <a href=\"https://github.com/leafygreen/cyclops\" target=\"_blank\">https://github.com/leafygreen/cyclops</a>\n  </footer>\n </div>\n";
 },"useData":true});
 
-},{"hbsfy/runtime":27}]},{},[39]);
+},{"hbsfy/runtime":27}]},{},[40]);
