@@ -13,7 +13,7 @@ const AgentDataCollectionView = require('./AgentDataCollectionView');
 const ClopsStream = require('./ClopsStream');
 
 // Initialize MITM Stream
-const stream = new ClopsStream({ url: 'ws://localhost:12345' });
+const stream = new ClopsStream({ url: 'ws://localhost:9090/ws' });
 stream.createConnection();
 
 // Setup Routers
