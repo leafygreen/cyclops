@@ -32619,11 +32619,13 @@ var Backbone = require('backbone');
 module.exports = Backbone.Model.extend({
     defaults: {
         hostname: null,
-        lastPing: null
+        lastPing: null,
+        logs: []
     },
 
     handleMessage: function handleMessage(type, content) {
         this.set('lastPing', new Date().getTime());
+        console.log('handling', type, content);
         switch (type) {
             case 'status':
                 this.handleStatusMessage(content);break;
@@ -32636,7 +32638,9 @@ module.exports = Backbone.Model.extend({
 
     handleStatusMessage: function handleStatusMessage(content) {},
 
-    handleLogMessage: function handleLogMessage(content) {},
+    handleLogMessage: function handleLogMessage(content) {
+        this.set('logs', this.get('logs').concat(content));
+    },
 
     handleMetricsMessage: function handleMetricsMessage(content) {}
 });
@@ -32656,18 +32660,78 @@ module.exports = Marionette.CollectionView.extend({
 },{"./AgentDataView":33,"backbone.marionette":2}],33:[function(require,module,exports){
 'use strict';
 
+var $ = require('jquery');
 var Marionette = require('backbone.marionette');
+
+var AgentLogsOverlay = require('./AgentLogsOverlay');
 
 module.exports = Marionette.ItemView.extend({
     className: 'tileset-item',
     template: require('./agentData.hbs'),
 
+    events: {
+        'click button[name="view-logs"]': 'onClickViewLogs'
+    },
+
     serializeData: function serializeData() {
         return this.model.attributes;
+    },
+
+    onClickViewLogs: function onClickViewLogs() {
+        var overlay = new AgentLogsOverlay({
+            model: this.model
+        });
+        $('body').append(overlay.render().el);
     }
 });
 
-},{"./agentData.hbs":36,"backbone.marionette":2}],34:[function(require,module,exports){
+},{"./AgentLogsOverlay":34,"./agentData.hbs":37,"backbone.marionette":2,"jquery":28}],34:[function(require,module,exports){
+'use strict';
+
+var _ = require('underscore');
+
+var Marionette = require('backbone.marionette');
+
+module.exports = Marionette.ItemView.extend({
+    className: 'overlay',
+    template: require('./agentLogsOverlay.hbs'),
+
+    events: {
+        'click button[name="close"]': 'closeOverlay'
+    },
+
+    initialize: function initialize() {
+        this.setPoller();
+    },
+
+    setPoller: function setPoller() {
+        var _this = this;
+
+        this.pollerId = setTimeout(function () {
+            console.log('attempting re-render');
+            _this.render();
+            _this.setPoller();
+        }, 1000);
+    },
+
+    onDestroy: function onDestroy() {
+        clearTimeout(this.pollerId);
+    },
+
+    closeOverlay: function closeOverlay() {
+        this.destroy();
+    },
+
+    serializeData: function serializeData() {
+        return _.extend({}, this.model.attributes, {
+            logs: this.model.attributes.logs.map(function (log) {
+                return JSON.stringify(log);
+            })
+        });
+    }
+});
+
+},{"./agentLogsOverlay.hbs":38,"backbone.marionette":2,"underscore":30}],35:[function(require,module,exports){
 'use strict';
 
 var Marionette = require('backbone.marionette');
@@ -32685,7 +32749,7 @@ module.exports = Marionette.LayoutView.extend({
     }
 });
 
-},{"./appLayout.hbs":38,"backbone.marionette":2,"rickshaw":29}],35:[function(require,module,exports){
+},{"./appLayout.hbs":40,"backbone.marionette":2,"rickshaw":29}],36:[function(require,module,exports){
 'use strict';
 
 var $ = require('jquery');
@@ -32746,7 +32810,6 @@ _.extend(ClopsStream.prototype, {
         var agentData = this.agentMap[hostname];
         if (!agentData) {
             agentData = new AgentData({ hostname: hostname });
-            console.log(agentData);
             this.agentMap[hostname] = agentData;
             this.agentCollection.add(agentData);
         }
@@ -32772,7 +32835,7 @@ _.extend(ClopsStream.prototype, {
 
 module.exports = ClopsStream;
 
-},{"./AgentData":31,"backbone":4,"jquery":28,"underscore":30}],36:[function(require,module,exports){
+},{"./AgentData":31,"backbone":4,"jquery":28,"underscore":30}],37:[function(require,module,exports){
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
@@ -32782,10 +32845,28 @@ module.exports = HandlebarsCompiler.template({"compiler":[7,">= 4.0.0"],"main":f
     + alias4(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
     + "\nLast Ping: "
     + alias4(((helper = (helper = helpers.lastPing || (depth0 != null ? depth0.lastPing : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastPing","hash":{},"data":data}) : helper)))
-    + "\n";
+    + "\n<button name=\"view-logs\">View Logs</button>\n";
 },"useData":true});
 
-},{"hbsfy/runtime":27}],37:[function(require,module,exports){
+},{"hbsfy/runtime":27}],38:[function(require,module,exports){
+// hbsfy compiled Handlebars template
+var HandlebarsCompiler = require('hbsfy/runtime');
+module.exports = HandlebarsCompiler.template({"1":function(container,depth0,helpers,partials,data) {
+    return "  <div>"
+    + container.escapeExpression(container.lambda(depth0, depth0))
+    + "</div>\n";
+},"3":function(container,depth0,helpers,partials,data) {
+    return "  <div>Waiting for logs...</div>\n";
+},"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
+    var stack1, helper, alias1=depth0 != null ? depth0 : {};
+
+  return "<h1>Agent Logs for "
+    + container.escapeExpression(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
+    + "</h1>\n<button name=\"close\">Close</button>\n<hr/>\n\n"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.logs : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "");
+},"useData":true});
+
+},{"hbsfy/runtime":27}],39:[function(require,module,exports){
 'use strict';
 
 var Backbone = require('backbone');
@@ -32801,7 +32882,7 @@ var AgentDataCollectionView = require('./AgentDataCollectionView');
 var ClopsStream = require('./ClopsStream');
 
 // Initialize MITM Stream
-var stream = new ClopsStream({ url: 'ws://localhost:12345' });
+var stream = new ClopsStream({ url: 'ws://localhost:9090/ws' });
 stream.createConnection();
 
 // Setup Routers
@@ -32829,11 +32910,11 @@ stream.whenHasInitialData().then(function () {
     Backbone.history.start();
 });
 
-},{"./AgentDataCollectionView":32,"./AppLayout":34,"./ClopsStream":35,"backbone":4,"backbone.marionette":2}],38:[function(require,module,exports){
+},{"./AgentDataCollectionView":32,"./AppLayout":35,"./ClopsStream":36,"backbone":4,"backbone.marionette":2}],40:[function(require,module,exports){
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     return "<div class=\"appLayout\">\n  <header class=\"appLayout-header\">\n    Cyclops\n  </header>\n\n  <div class=\"appLayout-content\"></div>\n\n  <footer class=\"appLayout-footer\">\n    <a href=\"https://github.com/leafygreen/cyclops\" target=\"_blank\">https://github.com/leafygreen/cyclops</a>\n  </footer>\n </div>\n";
 },"useData":true});
 
-},{"hbsfy/runtime":27}]},{},[37]);
+},{"hbsfy/runtime":27}]},{},[39]);

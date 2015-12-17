@@ -1,0 +1,9 @@
+<h1>Agent Logs for {{hostname}}</h1>
+<button name="close">Close</button>
+<hr/>
+
+{{#each logs}}
+  <div>{{this}}</div>
+{{else}}
+  <div>Waiting for logs...</div>
+{{/each}}
