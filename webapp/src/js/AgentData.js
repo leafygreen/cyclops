@@ -1,5 +1,6 @@
 'use strict';
 
+const _ = require('underscore');
 const Backbone = require('backbone');
 
 const ProcessData = require('./ProcessData');
@@ -25,10 +26,14 @@ module.exports = Backbone.Model.extend({
         platform: {},
         cpuMetrics: [],
         sampleTime: null,
-        cpuTimeKernel: null,
-        cpuTimeUser: null,
-        cpuTimeIdle: null,
-        cpuTimeNice: null,
+        cpuTimeKernel: 0,
+        cpuTimeUser: 0,
+        cpuTimeIdle: 0,
+        cpuTimeNice: 0,
+        cpuTimeIoWait: 0,
+        cpuTimeIrq: 0,
+        cpuTimeSoftIrq: 0,
+        cpuTimeSoftSteal: 0,
         cpuUtilization: null
     },
 
@@ -54,15 +59,20 @@ module.exports = Backbone.Model.extend({
 
     handleMetricsMessage: function(content) {
         const platform = content.platform;
-        const systemCpuMetrics = content.systemCpuMetrics;
+        const systemCpuMetrics = _.defaults(content.systemCpuMetrics, {
+            iowait: 0,
+            irq: 0,
+            softirq: 0,
+            steal: 0
+        });
         const processCpuMetrics = content.processCpuMetrics;
         const diskMetrics = content.diskMetrics;
 
-        const prevIdle = this.get('cpuTimeIdle');
-        const idle = systemCpuMetrics.idle;
+        const prevIdle = this.get('cpuTimeIdle') + this.get('cpuTimeIoWait');
+        const idle = systemCpuMetrics.idle + systemCpuMetrics.iowait;
 
-        const prevNonIdle = this.get('cpuTimeUser') + this.get('cpuTimeKernel') + this.get('cpuTimeNice');
-        const nonIdle = systemCpuMetrics.user + systemCpuMetrics.kernel + systemCpuMetrics.nice;
+        const prevNonIdle = this.get('cpuTimeUser') + this.get('cpuTimeKernel') + this.get('cpuTimeNice') + this.get('cpuTimeIrq') + this.get('cpuTimeSoftIrq') + this.get('cpuTimeSteal');
+        const nonIdle = systemCpuMetrics.user + systemCpuMetrics.kernel + systemCpuMetrics.nice + systemCpuMetrics.irq + systemCpuMetrics.softirq + systemCpuMetrics.steal;
 
         const prevTotal = prevIdle + prevNonIdle;
         const total = idle + nonIdle;
@@ -81,6 +91,10 @@ module.exports = Backbone.Model.extend({
             cpuTimeUser: systemCpuMetrics.user,
             cpuTimeIdle: systemCpuMetrics.idle,
             cpuTimeNice: systemCpuMetrics.nice,
+            cpuTimeIoWait: systemCpuMetrics.iowait,
+            cpuTimeIrq: systemCpuMetrics.irq,
+            cpuTimeSoftIrq: systemCpuMetrics.softirq,
+            cpuTimeSteal: systemCpuMetrics.steal,
             cpuUtilization: cpuPercentage
         });
 

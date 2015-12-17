@@ -24,12 +24,8 @@ module.exports = Marionette.ItemView.extend({
 
     onRender: function() {
         this._drawCpuMetricsChart();
-        this.model.get('processDataCollection').forEach(process => {
-            this._drawProcessCpuMetricsChart(process);
-        });
         this.model.get('diskDataCollection').forEach(disk => {
             this._drawDiskSpaceChart(disk);
-            this._drawDiskReadWriteChart(disk);
         });
     },
 
@@ -66,39 +62,6 @@ module.exports = Marionette.ItemView.extend({
         graph.render();
     },
 
-    _drawProcessCpuMetricsChart: function(process) {
-        const palette = new Rickshaw.Color.Palette({ scheme: 'munin' });
-        const series = [{
-            name: 'kernel',
-            data: [],
-            color: palette.color()
-        }, {
-            name: 'user',
-            data: [],
-            color: palette.color()
-        }];
-
-        process.get('cpuMetrics').reduce((memo, datum) => {
-            memo[0].data.push({
-                x: datum.sampleTime,
-                y: datum.kernel
-            });
-            memo[1].data.push({
-                x: datum.sampleTime,
-                y: datum.user
-            });
-            return memo;
-        }, series);
-
-        var graph = new Rickshaw.Graph({
-            element: this.$('.cpuChart' + process.get('name')).get(0),
-            width: 100,
-            height: 100,
-            series: series
-        });
-        graph.render();
-    },
-
     _drawDiskSpaceChart: function(disk) {
         const palette = new Rickshaw.Color.Palette({ scheme: 'munin' });
         const series = [{
@@ -125,39 +88,6 @@ module.exports = Marionette.ItemView.extend({
 
         var graph = new Rickshaw.Graph({
             element: this.$('.diskSpaceChart' + disk.get('name')).get(0),
-            width: 100,
-            height: 100,
-            series: series
-        });
-        graph.render();
-    },
-
-    _drawDiskReadWriteChart: function(disk) {
-        const palette = new Rickshaw.Color.Palette({ scheme: 'munin' });
-        const series = [{
-            name: 'readCount',
-            data: [],
-            color: palette.color()
-        }, {
-            name: 'writeCount',
-            data: [],
-            color: palette.color()
-        }];
-
-        disk.get('diskMetrics').reduce((memo, datum) => {
-            memo[0].data.push({
-                x: datum.sampleTime,
-                y: datum.readCount
-            });
-            memo[1].data.push({
-                x: datum.sampleTime,
-                y: datum.writeCount
-            });
-            return memo;
-        }, series);
-
-        var graph = new Rickshaw.Graph({
-            element: this.$('.diskReadWriteChart' + disk.get('name')).get(0),
             width: 100,
             height: 100,
             series: series

@@ -1,5 +1,6 @@
 <h2 style="margin-top: 0;">Hostname: {{hostname}}</h2>
 <button name="view-logs">View Logs</button>
+<hr/>
 
 <table>
   <tr>
@@ -7,20 +8,16 @@
     <th>Platform</th>
     <th>CPU Time (Kernel)</th>
     <th>CPU Time (User)</th>
-    <th>CPU Time (Nice)</th>
     <th>CPU Time (Idle)</th>
     <th>CPU %</th>
-    <th>Last Stats</th>
   </tr>
   <tr>
     <td>{{lastPing}}</td>
     <td>{{platform.os}} {{platform.arch}}</td>
     <td>{{cpuTimeKernel}}</td>
     <td>{{cpuTimeUser}}</td>
-    <td>{{cpuTimeNice}}</td>
     <td>{{cpuTimeIdle}}</td>
     <td>{{cpuUtilization}}</td>
-    <td>{{sampleTime}}</td>
 </table>
 
 <table>
@@ -30,9 +27,6 @@
     <th>Goal Version</th>
     <th>Error Code</th>
     <th>Plan</th>
-    <th>CPU Time (Kernel)</th>
-    <th>CPU Time (User)</th>
-    <th>Last Stats</th>
   </tr>
   {{#each processDataCollection}}
     <tr>
@@ -40,13 +34,10 @@
       <td>{{lastGoalVersionAchieved}}</td>
       <td>{{errorCode}}</th>
       <td>{{#each plan}}{{this}} {{else}}No Plan{{/each}}</td>
-      <td>{{cpuTimeKernel}}</td>
-      <td>{{cpuTimeUser}}</td>
-      <td>{{sampleTime}}</td>
     </tr>
   {{else}}
     <tr>
-      <td colspan="7">Waiting for process information</td>
+      <td colspan="4">Waiting for process information</td>
   {{/each}}
 </table>
 
@@ -56,9 +47,6 @@
     <th>Disk Name</th>
     <th>Space Used</th>
     <th>Space Free</th>
-    <th>Read Count</th>
-    <th>Write Count</th>
-    <th>Last Stats</th>
     <th>Tags</th>
   </tr>
   {{#each diskDataCollection}}
@@ -66,36 +54,23 @@
       <td>{{name}}</td>
       <td>{{diskSpaceUsed}}</th>
       <td>{{diskSpaceFree}}</td>
-      <td>{{readCount}}</td>
-      <td>{{writeCount}}</td>
-      <td>{{sampleTime}}</th>
       <td>{{#each tags}}{{this}} {{else}}No Tags{{/each}}</td>
     </tr>
   {{else}}
     <tr>
-      <td colspan="7">Waiting for disk information</td>
+      <td colspan="4">Waiting for disk information</td>
   {{/each}}
 </table>
 
 <div class="chart-row">
   <div class="chart-row-item">
     <div class="cpuChart"></div>
-    CPU Time
+    CPU Utilization
   </div>
-  {{#each processDataCollection}}
-    <div class="chart-row-item">
-      <div class="cpuChart{{name}}"></div>
-      CPU Time (Process {{name}})
-    </div>
-  {{/each}}
   {{#each diskDataCollection}}
     <div class="chart-row-item">
       <div class="diskSpaceChart{{name}}"></div>
-      Disk Space
-    </div>
-    <div class="chart-row-item">
-      <div class="diskReadWriteChart{{name}}"></div>
-      Reads/Writes
+      Disk Utilization
     </div>
   {{/each}}
  </div>
