@@ -16,7 +16,8 @@ module.exports = Marionette.ItemView.extend({
 
     serializeData: function() {
         return _.extend({}, this.model.attributes, {
-            processDataCollection: this.model.attributes.processDataCollection.toJSON()
+            processDataCollection: this.model.attributes.processDataCollection.toJSON(),
+            diskDataCollection: this.model.attributes.diskDataCollection.toJSON()
         });
     },
 

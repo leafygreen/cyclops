@@ -32621,6 +32621,11 @@ var ProcessDataCollection = Backbone.Collection.extend({
     model: ProcessData,
     comparator: 'name'
 });
+var DiskData = require('./DiskData');
+var DiskDataCollection = Backbone.Collection.extend({
+    model: DiskData,
+    comparator: 'name'
+});
 
 module.exports = Backbone.Model.extend({
     defaults: {
@@ -32628,11 +32633,15 @@ module.exports = Backbone.Model.extend({
         lastPing: null,
         logs: [],
         processMap: {},
-        processDataCollection: new ProcessDataCollection()
+        processDataCollection: new ProcessDataCollection(),
+        diskMap: {},
+        diskDataCollection: new DiskDataCollection(),
+        platform: {},
+        cpuMetrics: []
     },
 
     handleMessage: function handleMessage(type, content) {
-        this.set('lastPing', new Date().getTime());
+        this.set('lastPing', new Date().toISOString());
         switch (type) {
             case 'status':
                 this.handleStatusMessage(content);break;
@@ -32656,7 +32665,27 @@ module.exports = Backbone.Model.extend({
         this.set('logs', this.get('logs').concat(content));
     },
 
-    handleMetricsMessage: function handleMetricsMessage(content) {},
+    handleMetricsMessage: function handleMetricsMessage(content) {
+        var _this2 = this;
+
+        var platform = content.platform;
+        var systemCpuMetrics = content.systemCpuMetrics;
+        var processCpuMetrics = content.processCpuMetrics;
+        var diskMetrics = content.diskMetrics;
+
+        this.set('platform', platform);
+        this.get('cpuMetrics').push(systemCpuMetrics);
+
+        Object.keys(processCpuMetrics).forEach(function (name) {
+            var processData = _this2._findOrCreateProcessData(name);
+            processData.handleCpuMetrics(processCpuMetrics[name]);
+        });
+
+        Object.keys(diskMetrics).forEach(function (name) {
+            var diskData = _this2._findOrCreateDiskData(name);
+            diskData.handleDiskMetrics(diskMetrics[name]);
+        });
+    },
 
     _findOrCreateProcessData: function _findOrCreateProcessData(name) {
         var processMap = this.get('processMap');
@@ -32668,10 +32697,22 @@ module.exports = Backbone.Model.extend({
         }
 
         return processData;
+    },
+
+    _findOrCreateDiskData: function _findOrCreateDiskData(name) {
+        var diskMap = this.get('diskMap');
+        var diskData = diskMap[name];
+        if (!diskData) {
+            diskData = new DiskData({ name: name });
+            diskMap[name] = diskData;
+            this.get('diskDataCollection').add(diskData);
+        }
+
+        return diskData;
     }
 });
 
-},{"./ProcessData":37,"backbone":4}],32:[function(require,module,exports){
+},{"./DiskData":37,"./ProcessData":38,"backbone":4}],32:[function(require,module,exports){
 'use strict';
 
 var Marionette = require('backbone.marionette');
@@ -32715,7 +32756,8 @@ module.exports = Marionette.ItemView.extend({
 
     serializeData: function serializeData() {
         return _.extend({}, this.model.attributes, {
-            processDataCollection: this.model.attributes.processDataCollection.toJSON()
+            processDataCollection: this.model.attributes.processDataCollection.toJSON(),
+            diskDataCollection: this.model.attributes.diskDataCollection.toJSON()
         });
     },
 
@@ -32727,7 +32769,7 @@ module.exports = Marionette.ItemView.extend({
     }
 });
 
-},{"./AgentLogsOverlay":34,"./agentData.hbs":38,"backbone.marionette":2,"jquery":28,"underscore":30}],34:[function(require,module,exports){
+},{"./AgentLogsOverlay":34,"./agentData.hbs":39,"backbone.marionette":2,"jquery":28,"underscore":30}],34:[function(require,module,exports){
 'use strict';
 
 var _ = require('underscore');
@@ -32772,7 +32814,7 @@ module.exports = Marionette.ItemView.extend({
     }
 });
 
-},{"./agentLogsOverlay.hbs":39,"backbone.marionette":2,"underscore":30}],35:[function(require,module,exports){
+},{"./agentLogsOverlay.hbs":40,"backbone.marionette":2,"underscore":30}],35:[function(require,module,exports){
 'use strict';
 
 var Marionette = require('backbone.marionette');
@@ -32790,7 +32832,7 @@ module.exports = Marionette.LayoutView.extend({
     }
 });
 
-},{"./appLayout.hbs":41,"backbone.marionette":2,"rickshaw":29}],36:[function(require,module,exports){
+},{"./appLayout.hbs":42,"backbone.marionette":2,"rickshaw":29}],36:[function(require,module,exports){
 'use strict';
 
 var $ = require('jquery');
@@ -32884,9 +32926,26 @@ var Backbone = require('backbone');
 module.exports = Backbone.Model.extend({
     defaults: {
         name: null,
+        diskMetrics: []
+    },
+
+    handleDiskMetrics: function handleDiskMetrics(metrics) {
+        this.get('diskMetrics').push(metrics);
+    }
+});
+
+},{"backbone":4}],38:[function(require,module,exports){
+'use strict';
+
+var Backbone = require('backbone');
+
+module.exports = Backbone.Model.extend({
+    defaults: {
+        name: null,
         errorCode: 0,
         lastGoalVersionAchieved: -1,
-        plan: null
+        plan: null,
+        cpuMetrics: []
     },
 
     handleStatus: function handleStatus(status) {
@@ -32895,14 +32954,26 @@ module.exports = Backbone.Model.extend({
             lastGoalVersionAchieved: status.lastGoalVersionAchieved,
             plan: status.plan
         });
+    },
+
+    handleCpuMetrics: function handleCpuMetrics(metrics) {
+        this.get('cpuMetrics').push(metrics);
     }
 });
 
-},{"backbone":4}],38:[function(require,module,exports){
+},{"backbone":4}],39:[function(require,module,exports){
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"1":function(container,depth0,helpers,partials,data) {
-    var helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
+    var stack1, alias1=container.lambda, alias2=container.escapeExpression;
+
+  return "  Platform: "
+    + alias2(alias1(((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.os : stack1), depth0))
+    + " "
+    + alias2(alias1(((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.arch : stack1), depth0))
+    + "\n";
+},"3":function(container,depth0,helpers,partials,data) {
+    var stack1, helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
   return "  Name: "
     + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
@@ -32911,22 +32982,39 @@ module.exports = HandlebarsCompiler.template({"1":function(container,depth0,help
     + "\n  Error Code: "
     + alias4(((helper = (helper = helpers.errorCode || (depth0 != null ? depth0.errorCode : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"errorCode","hash":{},"data":data}) : helper)))
     + "\n  Plan: "
-    + alias4(((helper = (helper = helpers.plan || (depth0 != null ? depth0.plan : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"plan","hash":{},"data":data}) : helper)))
-    + "\n";
-},"3":function(container,depth0,helpers,partials,data) {
-    return "  No processes\n";
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.plan : depth0),{"name":"each","hash":{},"fn":container.program(4, data, 0),"inverse":container.program(6, data, 0),"data":data})) != null ? stack1 : "")
+    + "\n  <br/>\n";
+},"4":function(container,depth0,helpers,partials,data) {
+    return container.escapeExpression(container.lambda(depth0, depth0))
+    + " ";
+},"6":function(container,depth0,helpers,partials,data) {
+    return "No Plan";
+},"8":function(container,depth0,helpers,partials,data) {
+    return "  Waiting for process information\n";
+},"10":function(container,depth0,helpers,partials,data) {
+    var helper;
+
+  return "  Name: "
+    + container.escapeExpression(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : {},{"name":"name","hash":{},"data":data}) : helper)))
+    + "\n  <br/>\n";
+},"12":function(container,depth0,helpers,partials,data) {
+    return "  Waiting for disk information\n";
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
-  return "Hostname: "
+  return "<h2>Hostname: "
     + alias4(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
-    + "\nLast Ping: "
+    + "</h2>\n<button name=\"view-logs\">View Logs</button>\n<br/>\n\nLast Ping: "
     + alias4(((helper = (helper = helpers.lastPing || (depth0 != null ? depth0.lastPing : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastPing","hash":{},"data":data}) : helper)))
-    + "\n<button name=\"view-logs\">View Logs</button>\n<hr/>\n"
-    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.processDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "");
+    + "\n"
+    + ((stack1 = helpers["if"].call(alias1,((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.os : stack1),{"name":"if","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
+    + "\n<h2>Processes</h2>\n"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.processDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(3, data, 0),"inverse":container.program(8, data, 0),"data":data})) != null ? stack1 : "")
+    + "\n<h2>CPU Metrics</h2>\nTODO\n\n<h2>Disks</h2>\n"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.diskDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(10, data, 0),"inverse":container.program(12, data, 0),"data":data})) != null ? stack1 : "");
 },"useData":true});
 
-},{"hbsfy/runtime":27}],39:[function(require,module,exports){
+},{"hbsfy/runtime":27}],40:[function(require,module,exports){
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"1":function(container,depth0,helpers,partials,data) {
@@ -32944,7 +33032,7 @@ module.exports = HandlebarsCompiler.template({"1":function(container,depth0,help
     + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.logs : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "");
 },"useData":true});
 
-},{"hbsfy/runtime":27}],40:[function(require,module,exports){
+},{"hbsfy/runtime":27}],41:[function(require,module,exports){
 'use strict';
 
 var Backbone = require('backbone');
@@ -32988,11 +33076,11 @@ stream.whenHasInitialData().then(function () {
     Backbone.history.start();
 });
 
-},{"./AgentDataCollectionView":32,"./AppLayout":35,"./ClopsStream":36,"backbone":4,"backbone.marionette":2}],41:[function(require,module,exports){
+},{"./AgentDataCollectionView":32,"./AppLayout":35,"./ClopsStream":36,"backbone":4,"backbone.marionette":2}],42:[function(require,module,exports){
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     return "<div class=\"appLayout\">\n  <header class=\"appLayout-header\">\n    Cyclops\n  </header>\n\n  <div class=\"appLayout-content\"></div>\n\n  <footer class=\"appLayout-footer\">\n    <a href=\"https://github.com/leafygreen/cyclops\" target=\"_blank\">https://github.com/leafygreen/cyclops</a>\n  </footer>\n </div>\n";
 },"useData":true});
 
-},{"hbsfy/runtime":27}]},{},[40]);
+},{"hbsfy/runtime":27}]},{},[41]);

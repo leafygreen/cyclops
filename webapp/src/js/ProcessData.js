@@ -7,7 +7,8 @@ module.exports = Backbone.Model.extend({
         name: null,
         errorCode: 0,
         lastGoalVersionAchieved: -1,
-        plan: null
+        plan: null,
+        cpuMetrics: []
     },
 
     handleStatus: function(status) {
@@ -16,5 +17,9 @@ module.exports = Backbone.Model.extend({
             lastGoalVersionAchieved: status.lastGoalVersionAchieved,
             plan: status.plan
         });
+    },
+
+    handleCpuMetrics: function(metrics) {
+        this.get('cpuMetrics').push(metrics);
     }
 });

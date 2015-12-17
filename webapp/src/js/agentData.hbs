@@ -1,13 +1,30 @@
-Hostname: {{hostname}}
-Last Ping: {{lastPing}}
+<h2>Hostname: {{hostname}}</h2>
 <button name="view-logs">View Logs</button>
-<hr/>
+<br/>
+
+Last Ping: {{lastPing}}
+{{#if platform.os}}
+  Platform: {{platform.os}} {{platform.arch}}
+{{/if}}
+
+<h2>Processes</h2>
 {{#each processDataCollection}}
   Name: {{name}}
   Goal Version: {{lastGoalVersionAchieved}}
   Error Code: {{errorCode}}
-  Plan: {{plan}}
+  Plan: {{#each plan}}{{this}} {{else}}No Plan{{/each}}
   <br/>
 {{else}}
-  No processes
+  Waiting for process information
+{{/each}}
+
+<h2>CPU Metrics</h2>
+TODO
+
+<h2>Disks</h2>
+{{#each diskDataCollection}}
+  Name: {{name}}
+  <br/>
+{{else}}
+  Waiting for disk information
 {{/each}}
