@@ -2,8 +2,30 @@
 <button name="close">Close</button>
 <hr/>
 
+<table>
+  <tr>
+    <th>Time</th>
+    <th>Level</th>
+    <th>Process</th>
+    <th>Thread</th>
+    <th>Logger</th>
+    <th>Message</th>
+    <th>Error Code</th>
+    <th>Throwable</th>
+  </tr>
 {{#each logs}}
-  <div>{{this}}</div>
+  <tr>
+    <td>{{timestamp}}</td>
+    <td>{{level}}</td>
+    <td>{{processName}}</td>
+    <td>{{thread}}</td>
+    <td>{{logger}}</td>
+    <td>{{message}}</td>
+    <td>{{errorCode}}</td>
+    <td>{{throwable}}</td>
+  </tr>
 {{else}}
-  <div>Waiting for logs...</div>
+  <tr>
+    <td colspan="8">Waiting for logs...</td>
+   </tr>
 {{/each}}

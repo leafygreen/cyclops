@@ -4,6 +4,18 @@ body {
   font-family: 'Open Sans', sans-serif;
   font-weight: 200;
 }
+table {
+  width: 100%;
+  border: 1px solid #494747;
+}
+th,
+td {
+  border: 1px solid #494747;
+}
+caption {
+  background-color: #494747;
+  color: white;
+}
 .splash-container {
   display: flex;
   min-height: 100vh;
@@ -47,9 +59,9 @@ body {
   flex-direction: column;
 }
 .tileset-item {
-  height: 250px;
   border: 1px solid #494747;
   margin: 10px;
+  padding: 10px;
 }
 .overlay {
   margin: auto;
@@ -63,4 +75,12 @@ body {
   z-index: 5;
   border: 1px solid #494747;
   overflow: scroll;
+}
+.chart-row {
+  display: flex;
+  flex-direction: row;
+}
+.chart-row-item {
+  margin: 10px;
+  padding: 10px;
 }

@@ -6,6 +6,20 @@ html,body {
   font-weight: 200;
 }
 
+table {
+  width: 100%;
+  border: 1px solid @background;
+}
+
+th, td {
+  border: 1px solid @background;
+}
+
+caption {
+  background-color: @background;
+  color: white;
+}
+
 .splash-container {
   display: flex;
   min-height: 100vh;
@@ -56,9 +70,9 @@ html,body {
   flex-direction: column;
 
   &-item {
-	height: 250px;
-	border: 1px solid @background;
-	margin: 10px;
+	  border: 1px solid @background;
+	  margin: 10px;
+    padding: 10px;
   }
 }
 
@@ -72,4 +86,14 @@ html,body {
   z-index:5;
   border: 1px solid @background;
   overflow: scroll;
+}
+
+.chart-row {
+  display: flex;
+  flex-direction: row;
+
+  &-item {
+    margin: 10px;
+    padding: 10px;
+  }
 }

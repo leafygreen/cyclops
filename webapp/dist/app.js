@@ -32614,11 +32614,17 @@ Rickshaw.Series.FixedDuration = Rickshaw.Class.create(Rickshaw.Series, {
 },{}],31:[function(require,module,exports){
 'use strict';
 
+var _ = require('underscore');
 var Backbone = require('backbone');
 
 var ProcessData = require('./ProcessData');
 var ProcessDataCollection = Backbone.Collection.extend({
     model: ProcessData,
+    comparator: 'name'
+});
+var DiskData = require('./DiskData');
+var DiskDataCollection = Backbone.Collection.extend({
+    model: DiskData,
     comparator: 'name'
 });
 
@@ -32628,11 +32634,25 @@ module.exports = Backbone.Model.extend({
         lastPing: null,
         logs: [],
         processMap: {},
-        processDataCollection: new ProcessDataCollection()
+        processDataCollection: new ProcessDataCollection(),
+        diskMap: {},
+        diskDataCollection: new DiskDataCollection(),
+        platform: {},
+        cpuMetrics: [],
+        sampleTime: null,
+        cpuTimeKernel: 0,
+        cpuTimeUser: 0,
+        cpuTimeIdle: 0,
+        cpuTimeNice: 0,
+        cpuTimeIoWait: 0,
+        cpuTimeIrq: 0,
+        cpuTimeSoftIrq: 0,
+        cpuTimeSoftSteal: 0,
+        cpuUtilization: null
     },
 
     handleMessage: function handleMessage(type, content) {
-        this.set('lastPing', new Date().getTime());
+        this.set('lastPing', new Date().toISOString());
         switch (type) {
             case 'status':
                 this.handleStatusMessage(content);break;
@@ -32656,7 +32676,59 @@ module.exports = Backbone.Model.extend({
         this.set('logs', this.get('logs').concat(content));
     },
 
-    handleMetricsMessage: function handleMetricsMessage(content) {},
+    handleMetricsMessage: function handleMetricsMessage(content) {
+        var _this2 = this;
+
+        var platform = content.platform;
+        var systemCpuMetrics = _.defaults(content.systemCpuMetrics, {
+            iowait: 0,
+            irq: 0,
+            softirq: 0,
+            steal: 0
+        });
+        var processCpuMetrics = content.processCpuMetrics;
+        var diskMetrics = content.diskMetrics;
+
+        var prevIdle = this.get('cpuTimeIdle') + this.get('cpuTimeIoWait');
+        var idle = systemCpuMetrics.idle + systemCpuMetrics.iowait;
+
+        var prevNonIdle = this.get('cpuTimeUser') + this.get('cpuTimeKernel') + this.get('cpuTimeNice') + this.get('cpuTimeIrq') + this.get('cpuTimeSoftIrq') + this.get('cpuTimeSteal');
+        var nonIdle = systemCpuMetrics.user + systemCpuMetrics.kernel + systemCpuMetrics.nice + systemCpuMetrics.irq + systemCpuMetrics.softirq + systemCpuMetrics.steal;
+
+        var prevTotal = prevIdle + prevNonIdle;
+        var total = idle + nonIdle;
+
+        // differentiate: actual value minus the previous one
+        var totald = total - prevTotal;
+        var idled = idle - prevIdle;
+
+        var cpuPercentage = (totald - idled) / totald;
+
+        this.set('platform', platform);
+        this.get('cpuMetrics').push(systemCpuMetrics);
+        this.set({
+            sampleTime: new Date(systemCpuMetrics.sampleTime).toISOString(),
+            cpuTimeKernel: systemCpuMetrics.kernel,
+            cpuTimeUser: systemCpuMetrics.user,
+            cpuTimeIdle: systemCpuMetrics.idle,
+            cpuTimeNice: systemCpuMetrics.nice,
+            cpuTimeIoWait: systemCpuMetrics.iowait,
+            cpuTimeIrq: systemCpuMetrics.irq,
+            cpuTimeSoftIrq: systemCpuMetrics.softirq,
+            cpuTimeSteal: systemCpuMetrics.steal,
+            cpuUtilization: cpuPercentage
+        });
+
+        Object.keys(processCpuMetrics).forEach(function (name) {
+            var processData = _this2._findOrCreateProcessData(name);
+            processData.handleCpuMetrics(processCpuMetrics[name]);
+        });
+
+        Object.keys(diskMetrics).forEach(function (name) {
+            var diskData = _this2._findOrCreateDiskData(name);
+            diskData.handleDiskMetrics(diskMetrics[name]);
+        });
+    },
 
     _findOrCreateProcessData: function _findOrCreateProcessData(name) {
         var processMap = this.get('processMap');
@@ -32668,10 +32740,22 @@ module.exports = Backbone.Model.extend({
         }
 
         return processData;
+    },
+
+    _findOrCreateDiskData: function _findOrCreateDiskData(name) {
+        var diskMap = this.get('diskMap');
+        var diskData = diskMap[name];
+        if (!diskData) {
+            diskData = new DiskData({ name: name });
+            diskMap[name] = diskData;
+            this.get('diskDataCollection').add(diskData);
+        }
+
+        return diskData;
     }
 });
 
-},{"./ProcessData":37,"backbone":4}],32:[function(require,module,exports){
+},{"./DiskData":37,"./ProcessData":38,"backbone":4,"underscore":30}],32:[function(require,module,exports){
 'use strict';
 
 var Marionette = require('backbone.marionette');
@@ -32692,7 +32776,7 @@ module.exports = Marionette.CollectionView.extend({
         this.pollerId = setTimeout(function () {
             _this.render();
             _this.setPoller();
-        }, 5000);
+        }, 2000);
     }
 });
 
@@ -32702,6 +32786,7 @@ module.exports = Marionette.CollectionView.extend({
 var $ = require('jquery');
 var _ = require('underscore');
 var Marionette = require('backbone.marionette');
+var Rickshaw = require('rickshaw');
 
 var AgentLogsOverlay = require('./AgentLogsOverlay');
 
@@ -32715,8 +32800,84 @@ module.exports = Marionette.ItemView.extend({
 
     serializeData: function serializeData() {
         return _.extend({}, this.model.attributes, {
-            processDataCollection: this.model.attributes.processDataCollection.toJSON()
+            processDataCollection: this.model.attributes.processDataCollection.toJSON(),
+            diskDataCollection: this.model.attributes.diskDataCollection.toJSON()
         });
+    },
+
+    onRender: function onRender() {
+        var _this = this;
+
+        this._drawCpuMetricsChart();
+        this.model.get('diskDataCollection').forEach(function (disk) {
+            _this._drawDiskSpaceChart(disk);
+        });
+    },
+
+    _drawCpuMetricsChart: function _drawCpuMetricsChart() {
+        var palette = new Rickshaw.Color.Palette({ scheme: 'munin' });
+        var series = [{
+            name: 'kernel',
+            data: [],
+            color: palette.color()
+        }, {
+            name: 'user',
+            data: [],
+            color: palette.color()
+        }];
+
+        this.model.get('cpuMetrics').reduce(function (memo, datum) {
+            memo[0].data.push({
+                x: datum.sampleTime,
+                y: datum.kernel
+            });
+            memo[1].data.push({
+                x: datum.sampleTime,
+                y: datum.user
+            });
+            return memo;
+        }, series);
+
+        var graph = new Rickshaw.Graph({
+            element: this.$('.cpuChart').get(0),
+            width: 100,
+            height: 100,
+            series: series
+        });
+        graph.render();
+    },
+
+    _drawDiskSpaceChart: function _drawDiskSpaceChart(disk) {
+        var palette = new Rickshaw.Color.Palette({ scheme: 'munin' });
+        var series = [{
+            name: 'diskSpaceFree',
+            data: [],
+            color: palette.color()
+        }, {
+            name: 'diskSpaceUsed',
+            data: [],
+            color: palette.color()
+        }];
+
+        disk.get('diskMetrics').reduce(function (memo, datum) {
+            memo[0].data.push({
+                x: datum.sampleTime,
+                y: datum.diskSpaceFree
+            });
+            memo[1].data.push({
+                x: datum.sampleTime,
+                y: datum.diskSpaceUsed
+            });
+            return memo;
+        }, series);
+
+        var graph = new Rickshaw.Graph({
+            element: this.$('.diskSpaceChart' + disk.get('name')).get(0),
+            width: 100,
+            height: 100,
+            series: series
+        });
+        graph.render();
     },
 
     onClickViewLogs: function onClickViewLogs() {
@@ -32727,7 +32888,7 @@ module.exports = Marionette.ItemView.extend({
     }
 });
 
-},{"./AgentLogsOverlay":34,"./agentData.hbs":38,"backbone.marionette":2,"jquery":28,"underscore":30}],34:[function(require,module,exports){
+},{"./AgentLogsOverlay":34,"./agentData.hbs":39,"backbone.marionette":2,"jquery":28,"rickshaw":29,"underscore":30}],34:[function(require,module,exports){
 'use strict';
 
 var _ = require('underscore');
@@ -32766,13 +32927,15 @@ module.exports = Marionette.ItemView.extend({
     serializeData: function serializeData() {
         return _.extend({}, this.model.attributes, {
             logs: this.model.attributes.logs.map(function (log) {
-                return JSON.stringify(log);
+                return _.extend({}, log, {
+                    timestamp: new Date(log.timestamp).toISOString()
+                });
             })
         });
     }
 });
 
-},{"./agentLogsOverlay.hbs":39,"backbone.marionette":2,"underscore":30}],35:[function(require,module,exports){
+},{"./agentLogsOverlay.hbs":40,"backbone.marionette":2,"underscore":30}],35:[function(require,module,exports){
 'use strict';
 
 var Marionette = require('backbone.marionette');
@@ -32790,7 +32953,7 @@ module.exports = Marionette.LayoutView.extend({
     }
 });
 
-},{"./appLayout.hbs":41,"backbone.marionette":2,"rickshaw":29}],36:[function(require,module,exports){
+},{"./appLayout.hbs":42,"backbone.marionette":2,"rickshaw":29}],36:[function(require,module,exports){
 'use strict';
 
 var $ = require('jquery');
@@ -32884,9 +33047,43 @@ var Backbone = require('backbone');
 module.exports = Backbone.Model.extend({
     defaults: {
         name: null,
+        tags: [],
+        diskMetrics: [],
+        sampleTime: null,
+        diskSpaceUsed: null,
+        diskSpaceFree: null,
+        readCount: null,
+        writeCount: null
+    },
+
+    handleDiskMetrics: function handleDiskMetrics(metrics) {
+        this.get('diskMetrics').push(metrics);
+        this.set({
+            tags: metrics.tags,
+            sampleTime: new Date(metrics.sampleTime).toISOString(),
+            diskSpaceUsed: metrics.diskSpaceUsed,
+            diskSpaceFree: metrics.diskSpaceFree,
+            readCount: metrics.readCount,
+            writeCount: metrics.writeCount
+        });
+    }
+});
+
+},{"backbone":4}],38:[function(require,module,exports){
+'use strict';
+
+var Backbone = require('backbone');
+
+module.exports = Backbone.Model.extend({
+    defaults: {
+        name: null,
         errorCode: 0,
         lastGoalVersionAchieved: -1,
-        plan: null
+        plan: null,
+        cpuMetrics: [],
+        sampleTime: null,
+        cpuTimeKernel: null,
+        cpuTimeUser: null
     },
 
     handleStatus: function handleStatus(status) {
@@ -32895,56 +33092,125 @@ module.exports = Backbone.Model.extend({
             lastGoalVersionAchieved: status.lastGoalVersionAchieved,
             plan: status.plan
         });
+    },
+
+    handleCpuMetrics: function handleCpuMetrics(metrics) {
+        this.get('cpuMetrics').push(metrics);
+        this.set({
+            sampleTime: new Date(metrics.sampleTime).toISOString(),
+            cpuTimeKernel: metrics.kernel,
+            cpuTimeUser: metrics.user
+        });
     }
 });
 
-},{"backbone":4}],38:[function(require,module,exports){
+},{"backbone":4}],39:[function(require,module,exports){
+// hbsfy compiled Handlebars template
+var HandlebarsCompiler = require('hbsfy/runtime');
+module.exports = HandlebarsCompiler.template({"1":function(container,depth0,helpers,partials,data) {
+    var stack1, helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
+
+  return "    <tr>\n      <td>"
+    + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
+    + "</td>\n      <td>"
+    + alias4(((helper = (helper = helpers.lastGoalVersionAchieved || (depth0 != null ? depth0.lastGoalVersionAchieved : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastGoalVersionAchieved","hash":{},"data":data}) : helper)))
+    + "</td>\n      <td>"
+    + alias4(((helper = (helper = helpers.errorCode || (depth0 != null ? depth0.errorCode : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"errorCode","hash":{},"data":data}) : helper)))
+    + "</th>\n      <td>"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.plan : depth0),{"name":"each","hash":{},"fn":container.program(2, data, 0),"inverse":container.program(4, data, 0),"data":data})) != null ? stack1 : "")
+    + "</td>\n    </tr>\n";
+},"2":function(container,depth0,helpers,partials,data) {
+    return container.escapeExpression(container.lambda(depth0, depth0))
+    + " ";
+},"4":function(container,depth0,helpers,partials,data) {
+    return "No Plan";
+},"6":function(container,depth0,helpers,partials,data) {
+    return "    <tr>\n      <td colspan=\"4\">Waiting for process information</td>\n";
+},"8":function(container,depth0,helpers,partials,data) {
+    var stack1, helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
+
+  return "    <tr>\n      <td>"
+    + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
+    + "</td>\n      <td>"
+    + alias4(((helper = (helper = helpers.diskSpaceUsed || (depth0 != null ? depth0.diskSpaceUsed : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"diskSpaceUsed","hash":{},"data":data}) : helper)))
+    + "</th>\n      <td>"
+    + alias4(((helper = (helper = helpers.diskSpaceFree || (depth0 != null ? depth0.diskSpaceFree : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"diskSpaceFree","hash":{},"data":data}) : helper)))
+    + "</td>\n      <td>"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.tags : depth0),{"name":"each","hash":{},"fn":container.program(2, data, 0),"inverse":container.program(9, data, 0),"data":data})) != null ? stack1 : "")
+    + "</td>\n    </tr>\n";
+},"9":function(container,depth0,helpers,partials,data) {
+    return "No Tags";
+},"11":function(container,depth0,helpers,partials,data) {
+    return "    <tr>\n      <td colspan=\"4\">Waiting for disk information</td>\n";
+},"13":function(container,depth0,helpers,partials,data) {
+    var helper;
+
+  return "    <div class=\"chart-row-item\">\n      <div class=\"diskSpaceChart"
+    + container.escapeExpression(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : {},{"name":"name","hash":{},"data":data}) : helper)))
+    + "\"></div>\n      Disk Utilization\n    </div>\n";
+},"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
+    var stack1, helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression, alias5=container.lambda;
+
+  return "<h2 style=\"margin-top: 0;\">Hostname: "
+    + alias4(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
+    + "</h2>\n<button name=\"view-logs\">View Logs</button>\n\n<table>\n  <tr>\n    <th>Last Ping</th>\n    <th>Platform</th>\n    <th>CPU Time (Kernel)</th>\n    <th>CPU Time (User)</th>\n    <th>CPU Time (Idle)</th>\n    <th>CPU %</th>\n  </tr>\n  <tr>\n    <td>"
+    + alias4(((helper = (helper = helpers.lastPing || (depth0 != null ? depth0.lastPing : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastPing","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(alias5(((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.os : stack1), depth0))
+    + " "
+    + alias4(alias5(((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.arch : stack1), depth0))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.cpuTimeKernel || (depth0 != null ? depth0.cpuTimeKernel : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeKernel","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.cpuTimeUser || (depth0 != null ? depth0.cpuTimeUser : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeUser","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.cpuTimeIdle || (depth0 != null ? depth0.cpuTimeIdle : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeIdle","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.cpuUtilization || (depth0 != null ? depth0.cpuUtilization : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuUtilization","hash":{},"data":data}) : helper)))
+    + "</td>\n</table>\n\n<table>\n  <caption>Processes</caption>\n  <tr>\n    <th>Process Name</th>\n    <th>Goal Version</th>\n    <th>Error Code</th>\n    <th>Plan</th>\n  </tr>\n"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.processDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(6, data, 0),"data":data})) != null ? stack1 : "")
+    + "</table>\n\n<table>\n  <caption>Disks</caption>\n  <tr>\n    <th>Disk Name</th>\n    <th>Space Used</th>\n    <th>Space Free</th>\n    <th>Tags</th>\n  </tr>\n"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.diskDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(8, data, 0),"inverse":container.program(11, data, 0),"data":data})) != null ? stack1 : "")
+    + "</table>\n\n<div class=\"chart-row\">\n  <div class=\"chart-row-item\">\n    <div class=\"cpuChart\"></div>\n    CPU Utilization\n  </div>\n"
+    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.diskDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(13, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
+    + " </div>\n";
+},"useData":true});
+
+},{"hbsfy/runtime":27}],40:[function(require,module,exports){
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"1":function(container,depth0,helpers,partials,data) {
     var helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
 
-  return "  Name: "
-    + alias4(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"name","hash":{},"data":data}) : helper)))
-    + "\n  Goal Version: "
-    + alias4(((helper = (helper = helpers.lastGoalVersionAchieved || (depth0 != null ? depth0.lastGoalVersionAchieved : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastGoalVersionAchieved","hash":{},"data":data}) : helper)))
-    + "\n  Error Code: "
+  return "  <tr>\n    <td>"
+    + alias4(((helper = (helper = helpers.timestamp || (depth0 != null ? depth0.timestamp : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"timestamp","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.level || (depth0 != null ? depth0.level : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"level","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.processName || (depth0 != null ? depth0.processName : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"processName","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.thread || (depth0 != null ? depth0.thread : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"thread","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.logger || (depth0 != null ? depth0.logger : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"logger","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.message || (depth0 != null ? depth0.message : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"message","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
     + alias4(((helper = (helper = helpers.errorCode || (depth0 != null ? depth0.errorCode : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"errorCode","hash":{},"data":data}) : helper)))
-    + "\n  Plan: "
-    + alias4(((helper = (helper = helpers.plan || (depth0 != null ? depth0.plan : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"plan","hash":{},"data":data}) : helper)))
-    + "\n";
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.throwable || (depth0 != null ? depth0.throwable : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"throwable","hash":{},"data":data}) : helper)))
+    + "</td>\n  </tr>\n";
 },"3":function(container,depth0,helpers,partials,data) {
-    return "  No processes\n";
-},"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
-    var stack1, helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression;
-
-  return "Hostname: "
-    + alias4(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
-    + "\nLast Ping: "
-    + alias4(((helper = (helper = helpers.lastPing || (depth0 != null ? depth0.lastPing : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastPing","hash":{},"data":data}) : helper)))
-    + "\n<button name=\"view-logs\">View Logs</button>\n<hr/>\n"
-    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.processDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "");
-},"useData":true});
-
-},{"hbsfy/runtime":27}],39:[function(require,module,exports){
-// hbsfy compiled Handlebars template
-var HandlebarsCompiler = require('hbsfy/runtime');
-module.exports = HandlebarsCompiler.template({"1":function(container,depth0,helpers,partials,data) {
-    return "  <div>"
-    + container.escapeExpression(container.lambda(depth0, depth0))
-    + "</div>\n";
-},"3":function(container,depth0,helpers,partials,data) {
-    return "  <div>Waiting for logs...</div>\n";
+    return "  <tr>\n    <td colspan=\"8\">Waiting for logs...</td>\n   </tr>\n";
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : {};
 
   return "<h1>Agent Logs for "
     + container.escapeExpression(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
-    + "</h1>\n<button name=\"close\">Close</button>\n<hr/>\n\n"
+    + "</h1>\n<button name=\"close\">Close</button>\n<hr/>\n\n<table>\n  <tr>\n    <th>Time</th>\n    <th>Level</th>\n    <th>Process</th>\n    <th>Thread</th>\n    <th>Logger</th>\n    <th>Message</th>\n    <th>Error Code</th>\n    <th>Throwable</th>\n  </tr>\n"
     + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.logs : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "");
 },"useData":true});
 
-},{"hbsfy/runtime":27}],40:[function(require,module,exports){
+},{"hbsfy/runtime":27}],41:[function(require,module,exports){
 'use strict';
 
 var Backbone = require('backbone');
@@ -32988,11 +33254,11 @@ stream.whenHasInitialData().then(function () {
     Backbone.history.start();
 });
 
-},{"./AgentDataCollectionView":32,"./AppLayout":35,"./ClopsStream":36,"backbone":4,"backbone.marionette":2}],41:[function(require,module,exports){
+},{"./AgentDataCollectionView":32,"./AppLayout":35,"./ClopsStream":36,"backbone":4,"backbone.marionette":2}],42:[function(require,module,exports){
 // hbsfy compiled Handlebars template
 var HandlebarsCompiler = require('hbsfy/runtime');
 module.exports = HandlebarsCompiler.template({"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     return "<div class=\"appLayout\">\n  <header class=\"appLayout-header\">\n    Cyclops\n  </header>\n\n  <div class=\"appLayout-content\"></div>\n\n  <footer class=\"appLayout-footer\">\n    <a href=\"https://github.com/leafygreen/cyclops\" target=\"_blank\">https://github.com/leafygreen/cyclops</a>\n  </footer>\n </div>\n";
 },"useData":true});
 
-},{"hbsfy/runtime":27}]},{},[40]);
+},{"hbsfy/runtime":27}]},{},[41]);

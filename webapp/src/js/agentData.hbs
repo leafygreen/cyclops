@@ -1,13 +1,76 @@
-Hostname: {{hostname}}
-Last Ping: {{lastPing}}
+<h2 style="margin-top: 0;">Hostname: {{hostname}}</h2>
 <button name="view-logs">View Logs</button>
 <hr/>
-{{#each processDataCollection}}
-  Name: {{name}}
-  Goal Version: {{lastGoalVersionAchieved}}
-  Error Code: {{errorCode}}
-  Plan: {{plan}}
-  <br/>
-{{else}}
-  No processes
-{{/each}}
+
+<table>
+  <tr>
+    <th>Last Ping</th>
+    <th>Platform</th>
+    <th>CPU Time (Kernel)</th>
+    <th>CPU Time (User)</th>
+    <th>CPU Time (Idle)</th>
+    <th>CPU %</th>
+  </tr>
+  <tr>
+    <td>{{lastPing}}</td>
+    <td>{{platform.os}} {{platform.arch}}</td>
+    <td>{{cpuTimeKernel}}</td>
+    <td>{{cpuTimeUser}}</td>
+    <td>{{cpuTimeIdle}}</td>
+    <td>{{cpuUtilization}}</td>
+</table>
+
+<table>
+  <caption>Processes</caption>
+  <tr>
+    <th>Process Name</th>
+    <th>Goal Version</th>
+    <th>Error Code</th>
+    <th>Plan</th>
+  </tr>
+  {{#each processDataCollection}}
+    <tr>
+      <td>{{name}}</td>
+      <td>{{lastGoalVersionAchieved}}</td>
+      <td>{{errorCode}}</th>
+      <td>{{#each plan}}{{this}} {{else}}No Plan{{/each}}</td>
+    </tr>
+  {{else}}
+    <tr>
+      <td colspan="4">Waiting for process information</td>
+  {{/each}}
+</table>
+
+<table>
+  <caption>Disks</caption>
+  <tr>
+    <th>Disk Name</th>
+    <th>Space Used</th>
+    <th>Space Free</th>
+    <th>Tags</th>
+  </tr>
+  {{#each diskDataCollection}}
+    <tr>
+      <td>{{name}}</td>
+      <td>{{diskSpaceUsed}}</th>
+      <td>{{diskSpaceFree}}</td>
+      <td>{{#each tags}}{{this}} {{else}}No Tags{{/each}}</td>
+    </tr>
+  {{else}}
+    <tr>
+      <td colspan="4">Waiting for disk information</td>
+  {{/each}}
+</table>
+
+<div class="chart-row">
+  <div class="chart-row-item">
+    <div class="cpuChart"></div>
+    CPU Utilization
+  </div>
+  {{#each diskDataCollection}}
+    <div class="chart-row-item">
+      <div class="diskSpaceChart{{name}}"></div>
+      Disk Utilization
+    </div>
+  {{/each}}
+ </div>
