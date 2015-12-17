@@ -52,7 +52,7 @@ func (l *Listeners) Add(ws *websocket.Conn) {
 }
 
 func main() {
-	urlStr := flag.String("url", "http://localhost:8080", "MMS Backend URL")
+	urlStr := flag.String("url", "https://cloud-qa.mongodb.com/", "MMS Backend URL")
 	flag.Parse()
 
 	mmsUrl, err := url.Parse(*urlStr)
