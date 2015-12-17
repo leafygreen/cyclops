@@ -3,16 +3,19 @@ package main
 import (
 	"./Godeps/_workspace/src/golang.org/x/net/websocket"
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Listeners struct {
@@ -90,6 +93,26 @@ func main() {
 	go listeners.Broadcast()
 	proxy := httputil.NewSingleHostReverseProxy(mmsUrl)
 
+	// use some TLS client configuration if urlStr starts with https
+	useSSL := strings.Index(*urlStr, "https") == 0
+
+	if useSSL {
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: true,
+		}
+		tlsConfig.BuildNameToCertificate()
+		var TLSTransport http.RoundTripper = &http.Transport{
+			TLSClientConfig:    tlsConfig,
+			DisableCompression: true,
+			Dial: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).Dial,
+			TLSHandshakeTimeout: 10 * time.Second,
+		}
+		proxy.Transport = TLSTransport
+	}
+
 	// override director to intercept request body
 	oldDirector := proxy.Director
 	proxy.Director = func(request *http.Request) {
@@ -126,6 +149,13 @@ func main() {
 		}
 
 		oldDirector(request)
+
+		// FIXME: why is this necessary???!?
+		request.Host = mmsUrl.Host
+
+		if useSSL && strings.Index(mmsUrl.Host, ":") < 0 {
+			request.Host += ":443"
+		}
 	}
 
 	prefixes := make(map[string]http.Handler)
