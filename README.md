@@ -14,6 +14,10 @@ Cyclops
 * Update automation agents to point to cylops host on port 9090, e.g. http://myCyclops:9090
 * Open the webapp: cd webapp/dist; open index.html
 
+Screenshot
+------------------------
+![Screenshot](http://s16.postimg.org/5mqa509et/Screen_Shot_2015_12_18_at_12_03_07_PM.png)
+
 # Contributers
 * Dennis Kuczynski, @denniskuczynski
 * Stephen Lee, @sl33nyc
