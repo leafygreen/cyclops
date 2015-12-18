@@ -32702,7 +32702,7 @@ module.exports = Backbone.Model.extend({
         var totald = total - prevTotal;
         var idled = idle - prevIdle;
 
-        var cpuPercentage = (totald - idled) / totald;
+        var cpuPercentage = ((totald - idled) / totald).toFixed(2);
 
         this.set('platform', platform);
         this.get('cpuMetrics').push(systemCpuMetrics);
@@ -32776,7 +32776,7 @@ module.exports = Marionette.CollectionView.extend({
         this.pollerId = setTimeout(function () {
             _this.render();
             _this.setPoller();
-        }, 2000);
+        }, 1000);
     }
 });
 
@@ -32791,7 +32791,7 @@ var Rickshaw = require('rickshaw');
 var AgentLogsOverlay = require('./AgentLogsOverlay');
 
 module.exports = Marionette.ItemView.extend({
-    className: 'tileset-item',
+    className: 'agent-tile',
     template: require('./agentData.hbs'),
 
     events: {
@@ -32806,24 +32806,18 @@ module.exports = Marionette.ItemView.extend({
     },
 
     onRender: function onRender() {
-        var _this = this;
-
         this._drawCpuMetricsChart();
-        this.model.get('diskDataCollection').forEach(function (disk) {
-            _this._drawDiskSpaceChart(disk);
-        });
     },
 
     _drawCpuMetricsChart: function _drawCpuMetricsChart() {
-        var palette = new Rickshaw.Color.Palette({ scheme: 'munin' });
         var series = [{
             name: 'kernel',
             data: [],
-            color: palette.color()
+            color: 'red'
         }, {
             name: 'user',
             data: [],
-            color: palette.color()
+            color: 'blue'
         }];
 
         this.model.get('cpuMetrics').reduce(function (memo, datum) {
@@ -32839,43 +32833,12 @@ module.exports = Marionette.ItemView.extend({
         }, series);
 
         var graph = new Rickshaw.Graph({
-            element: this.$('.cpuChart').get(0),
-            width: 100,
-            height: 100,
-            series: series
-        });
-        graph.render();
-    },
-
-    _drawDiskSpaceChart: function _drawDiskSpaceChart(disk) {
-        var palette = new Rickshaw.Color.Palette({ scheme: 'munin' });
-        var series = [{
-            name: 'diskSpaceFree',
-            data: [],
-            color: palette.color()
-        }, {
-            name: 'diskSpaceUsed',
-            data: [],
-            color: palette.color()
-        }];
-
-        disk.get('diskMetrics').reduce(function (memo, datum) {
-            memo[0].data.push({
-                x: datum.sampleTime,
-                y: datum.diskSpaceFree
-            });
-            memo[1].data.push({
-                x: datum.sampleTime,
-                y: datum.diskSpaceUsed
-            });
-            return memo;
-        }, series);
-
-        var graph = new Rickshaw.Graph({
-            element: this.$('.diskSpaceChart' + disk.get('name')).get(0),
-            width: 100,
-            height: 100,
-            series: series
+            element: this.$('.cpu-info-chart').get(0),
+            width: 600,
+            height: 80,
+            max: 150,
+            series: series,
+            renderer: 'line'
         });
         graph.render();
     },
@@ -32913,11 +32876,17 @@ module.exports = Marionette.ItemView.extend({
         this.pollerId = setTimeout(function () {
             _this.render();
             _this.setPoller();
-        }, 5000);
+        }, 2000);
     },
 
     onDestroy: function onDestroy() {
         clearTimeout(this.pollerId);
+    },
+
+    onRender: function onRender() {
+        this.$el.animate({
+            scrollTop: this.$el.height()
+        });
     },
 
     closeOverlay: function closeOverlay() {
@@ -33142,38 +33111,26 @@ module.exports = HandlebarsCompiler.template({"1":function(container,depth0,help
     return "No Tags";
 },"11":function(container,depth0,helpers,partials,data) {
     return "    <tr>\n      <td colspan=\"4\">Waiting for disk information</td>\n";
-},"13":function(container,depth0,helpers,partials,data) {
-    var helper;
-
-  return "    <div class=\"chart-row-item\">\n      <div class=\"diskSpaceChart"
-    + container.escapeExpression(((helper = (helper = helpers.name || (depth0 != null ? depth0.name : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(depth0 != null ? depth0 : {},{"name":"name","hash":{},"data":data}) : helper)))
-    + "\"></div>\n      Disk Utilization\n    </div>\n";
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function", alias4=container.escapeExpression, alias5=container.lambda;
 
-  return "<h2 style=\"margin-top: 0;\">Hostname: "
+  return "<div class=\"agent-tile-header\">\n   <strong>"
     + alias4(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
-    + "</h2>\n<button name=\"view-logs\">View Logs</button>\n\n<table>\n  <tr>\n    <th>Last Ping</th>\n    <th>Platform</th>\n    <th>CPU Time (Kernel)</th>\n    <th>CPU Time (User)</th>\n    <th>CPU Time (Idle)</th>\n    <th>CPU %</th>\n  </tr>\n  <tr>\n    <td>"
+    + "</strong>\n   <button name=\"view-logs\">View Logs</button>\n</div>\n\n<table>\n  <tr>\n    <th>Last Ping</th>\n    <th>CPU Utilization</th>\n    <th>Disk Utilization</th>\n    <th>Platform</th>\n  </tr>\n  <tr>\n    <td>"
     + alias4(((helper = (helper = helpers.lastPing || (depth0 != null ? depth0.lastPing : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"lastPing","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.cpuUtilization || (depth0 != null ? depth0.cpuUtilization : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuUtilization","hash":{},"data":data}) : helper)))
+    + "</td>\n    <td>"
+    + alias4(((helper = (helper = helpers.diskUtilization || (depth0 != null ? depth0.diskUtilization : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"diskUtilization","hash":{},"data":data}) : helper)))
     + "</td>\n    <td>"
     + alias4(alias5(((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.os : stack1), depth0))
     + " "
     + alias4(alias5(((stack1 = (depth0 != null ? depth0.platform : depth0)) != null ? stack1.arch : stack1), depth0))
-    + "</td>\n    <td>"
-    + alias4(((helper = (helper = helpers.cpuTimeKernel || (depth0 != null ? depth0.cpuTimeKernel : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeKernel","hash":{},"data":data}) : helper)))
-    + "</td>\n    <td>"
-    + alias4(((helper = (helper = helpers.cpuTimeUser || (depth0 != null ? depth0.cpuTimeUser : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeUser","hash":{},"data":data}) : helper)))
-    + "</td>\n    <td>"
-    + alias4(((helper = (helper = helpers.cpuTimeIdle || (depth0 != null ? depth0.cpuTimeIdle : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuTimeIdle","hash":{},"data":data}) : helper)))
-    + "</td>\n    <td>"
-    + alias4(((helper = (helper = helpers.cpuUtilization || (depth0 != null ? depth0.cpuUtilization : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"cpuUtilization","hash":{},"data":data}) : helper)))
-    + "</td>\n</table>\n\n<table>\n  <caption>Processes</caption>\n  <tr>\n    <th>Process Name</th>\n    <th>Goal Version</th>\n    <th>Error Code</th>\n    <th>Plan</th>\n  </tr>\n"
+    + "</td>\n  </tr>\n</table>\n\n<table>\n  <caption>Processes</caption>\n  <tr>\n    <th>Name</th>\n    <th>Goal Version</th>\n    <th>Error Code</th>\n    <th>Plan</th>\n  </tr>\n"
     + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.processDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(6, data, 0),"data":data})) != null ? stack1 : "")
-    + "</table>\n\n<table>\n  <caption>Disks</caption>\n  <tr>\n    <th>Disk Name</th>\n    <th>Space Used</th>\n    <th>Space Free</th>\n    <th>Tags</th>\n  </tr>\n"
+    + "</table>\n\n<table>\n  <caption>Disks</caption>\n  <tr>\n    <th>Name</th>\n    <th>Space Used</th>\n    <th>Space Free</th>\n    <th>Tags</th>\n  </tr>\n"
     + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.diskDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(8, data, 0),"inverse":container.program(11, data, 0),"data":data})) != null ? stack1 : "")
-    + "</table>\n\n<div class=\"chart-row\">\n  <div class=\"chart-row-item\">\n    <div class=\"cpuChart\"></div>\n    CPU Utilization\n  </div>\n"
-    + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.diskDataCollection : depth0),{"name":"each","hash":{},"fn":container.program(13, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
-    + " </div>\n";
+    + "</table>\n\n<div class=\"info-title\">CPU Load</div>\n<div class=\"cpu-info\">\n  <table class=\"cpu-info-table\">\n    <tr>\n      <td>System</td>\n      <td style=\"color:red;\">5%</td>\n    </tr>\n    <tr>\n      <td>User</td>\n      <td style=\"color: blue;\">5%</td>\n    </tr>\n    <tr>\n      <td>Idle</td>\n      <td>5%</td>\n    </tr>\n  </table>\n  <div class=\"cpu-info-chart\">\n</div>\n";
 },"useData":true});
 
 },{"hbsfy/runtime":27}],40:[function(require,module,exports){
@@ -33192,7 +33149,7 @@ module.exports = HandlebarsCompiler.template({"1":function(container,depth0,help
     + alias4(((helper = (helper = helpers.thread || (depth0 != null ? depth0.thread : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"thread","hash":{},"data":data}) : helper)))
     + "</td>\n    <td>"
     + alias4(((helper = (helper = helpers.logger || (depth0 != null ? depth0.logger : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"logger","hash":{},"data":data}) : helper)))
-    + "</td>\n    <td>"
+    + "</td>\n    <td style=\"width:60%;\">"
     + alias4(((helper = (helper = helpers.message || (depth0 != null ? depth0.message : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"message","hash":{},"data":data}) : helper)))
     + "</td>\n    <td>"
     + alias4(((helper = (helper = helpers.errorCode || (depth0 != null ? depth0.errorCode : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"errorCode","hash":{},"data":data}) : helper)))
@@ -33204,9 +33161,9 @@ module.exports = HandlebarsCompiler.template({"1":function(container,depth0,help
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : {};
 
-  return "<h1>Agent Logs for "
+  return "<div class=\"header\">\n  <span class=\"header-title\">Agent Logs for "
     + container.escapeExpression(((helper = (helper = helpers.hostname || (depth0 != null ? depth0.hostname : depth0)) != null ? helper : helpers.helperMissing),(typeof helper === "function" ? helper.call(alias1,{"name":"hostname","hash":{},"data":data}) : helper)))
-    + "</h1>\n<button name=\"close\">Close</button>\n<hr/>\n\n<table>\n  <tr>\n    <th>Time</th>\n    <th>Level</th>\n    <th>Process</th>\n    <th>Thread</th>\n    <th>Logger</th>\n    <th>Message</th>\n    <th>Error Code</th>\n    <th>Throwable</th>\n  </tr>\n"
+    + "</span>\n  <button name=\"close\">Close</button>\n</div>\n\n<table>\n  <tr>\n    <th>Time</th>\n    <th>Level</th>\n    <th>Process</th>\n    <th>Thread</th>\n    <th>Logger</th>\n    <th>Message</th>\n    <th>Error Code</th>\n    <th>Throwable</th>\n  </tr>\n"
     + ((stack1 = helpers.each.call(alias1,(depth0 != null ? depth0.logs : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.program(3, data, 0),"data":data})) != null ? stack1 : "");
 },"useData":true});
 

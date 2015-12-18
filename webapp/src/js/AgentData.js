@@ -81,7 +81,7 @@ module.exports = Backbone.Model.extend({
         const totald = total - prevTotal;
         const idled = idle - prevIdle;
 
-        const cpuPercentage = (totald - idled) / totald;
+        const cpuPercentage = ((totald - idled) / totald).toFixed(2);
 
         this.set('platform', platform);
         this.get('cpuMetrics').push(systemCpuMetrics);

@@ -20,11 +20,17 @@ module.exports = Marionette.ItemView.extend({
         this.pollerId = setTimeout(() => {
             this.render();
             this.setPoller();
-        }, 5000);
+        }, 2000);
     },
 
     onDestroy: function() {
         clearTimeout(this.pollerId);
+    },
+
+    onRender: function() {
+        this.$el.animate({
+            scrollTop: this.$el.height()
+        });
     },
 
     closeOverlay: function() {

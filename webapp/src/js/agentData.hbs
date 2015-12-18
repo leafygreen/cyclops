@@ -1,29 +1,27 @@
-<h2 style="margin-top: 0;">Hostname: {{hostname}}</h2>
-<button name="view-logs">View Logs</button>
-<hr/>
+<div class="agent-tile-header">
+   <strong>{{hostname}}</strong>
+   <button name="view-logs">View Logs</button>
+</div>
 
 <table>
   <tr>
     <th>Last Ping</th>
+    <th>CPU Utilization</th>
+    <th>Disk Utilization</th>
     <th>Platform</th>
-    <th>CPU Time (Kernel)</th>
-    <th>CPU Time (User)</th>
-    <th>CPU Time (Idle)</th>
-    <th>CPU %</th>
   </tr>
   <tr>
     <td>{{lastPing}}</td>
-    <td>{{platform.os}} {{platform.arch}}</td>
-    <td>{{cpuTimeKernel}}</td>
-    <td>{{cpuTimeUser}}</td>
-    <td>{{cpuTimeIdle}}</td>
     <td>{{cpuUtilization}}</td>
+    <td>{{diskUtilization}}</td>
+    <td>{{platform.os}} {{platform.arch}}</td>
+  </tr>
 </table>
 
 <table>
   <caption>Processes</caption>
   <tr>
-    <th>Process Name</th>
+    <th>Name</th>
     <th>Goal Version</th>
     <th>Error Code</th>
     <th>Plan</th>
@@ -44,7 +42,7 @@
 <table>
   <caption>Disks</caption>
   <tr>
-    <th>Disk Name</th>
+    <th>Name</th>
     <th>Space Used</th>
     <th>Space Free</th>
     <th>Tags</th>
@@ -62,15 +60,21 @@
   {{/each}}
 </table>
 
-<div class="chart-row">
-  <div class="chart-row-item">
-    <div class="cpuChart"></div>
-    CPU Utilization
-  </div>
-  {{#each diskDataCollection}}
-    <div class="chart-row-item">
-      <div class="diskSpaceChart{{name}}"></div>
-      Disk Utilization
-    </div>
-  {{/each}}
- </div>
+<div class="info-title">CPU Load</div>
+<div class="cpu-info">
+  <table class="cpu-info-table">
+    <tr>
+      <td>System</td>
+      <td style="color:red;">5%</td>
+    </tr>
+    <tr>
+      <td>User</td>
+      <td style="color: blue;">5%</td>
+    </tr>
+    <tr>
+      <td>Idle</td>
+      <td>5%</td>
+    </tr>
+  </table>
+  <div class="cpu-info-chart">
+</div>

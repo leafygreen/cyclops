@@ -8,16 +8,14 @@ html,body {
 
 table {
   width: 100%;
-  border: 1px solid @background;
-}
-
-th, td {
-  border: 1px solid @background;
 }
 
 caption {
-  background-color: @background;
-  color: white;
+  text-align: left;
+  font-style: italic;
+  border-bottom: 1px solid white;
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 
 .splash-container {
@@ -45,12 +43,12 @@ caption {
     background-color: @background;
     color: white;
     padding: 10px;
-    font-size: 18px;
+    font-size: 20px;
   }
 
   &-content {
     padding: 10px;
-    font-size: 16px;
+    font-size: 14px;
     flex: 1;
   }
 
@@ -68,11 +66,52 @@ caption {
 .tileset {
   display: flex;
   flex-direction: column;
+}
 
-  &-item {
-	  border: 1px solid @background;
-	  margin: 10px;
-    padding: 10px;
+.agent-tile {
+  background-color: @background;
+  color: white;
+  padding: 10px;
+
+  th, td {
+    text-align: left;
+    width: 25%;
+  }
+
+  &-header {
+    font-size: 18px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid white;
+
+    button {
+      float: right;
+      padding: 5px;
+    }
+  }
+}
+
+.info-title {
+  margin-top: 10px;
+  background: white;
+  color: @background;
+  font-weight: bold;
+  padding: 5px;
+  text-align: center;
+}
+
+.cpu-info {
+  background: white;
+  color: @background;
+  display: flex;
+  flex-direction: row;
+  padding: 5px;
+
+  &-table {
+    width: 40%;
+  }
+
+  &-chart {
+    width: 60%;
   }
 }
 
@@ -86,14 +125,18 @@ caption {
   z-index:5;
   border: 1px solid @background;
   overflow: scroll;
-}
 
-.chart-row {
-  display: flex;
-  flex-direction: row;
+  .header {
+    margin-top: 10px;
+    margin-bottom: 10px;
 
-  &-item {
-    margin: 10px;
-    padding: 10px;
+    &-title {
+      font-size: 18px;
+    }
+
+    button {
+      float: right;
+      padding: 5px;
+    }
   }
 }

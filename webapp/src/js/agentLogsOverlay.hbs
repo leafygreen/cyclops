@@ -1,6 +1,7 @@
-<h1>Agent Logs for {{hostname}}</h1>
-<button name="close">Close</button>
-<hr/>
+<div class="header">
+  <span class="header-title">Agent Logs for {{hostname}}</span>
+  <button name="close">Close</button>
+</div>
 
 <table>
   <tr>
@@ -20,7 +21,7 @@
     <td>{{processName}}</td>
     <td>{{thread}}</td>
     <td>{{logger}}</td>
-    <td>{{message}}</td>
+    <td style="width:60%;">{{message}}</td>
     <td>{{errorCode}}</td>
     <td>{{throwable}}</td>
   </tr>
