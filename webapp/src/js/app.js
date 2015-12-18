@@ -1,5 +1,7 @@
 'use strict';
 
+const HOSTNAME_PORT = 'ec2-54-211-143-56.compute-1.amazonaws.com:9090';
+
 const Backbone = require('backbone');
 const Marionette = require('backbone.marionette');
 Marionette.Renderer = {
@@ -19,7 +21,7 @@ const AgentDataCollectionView = require('./AgentDataCollectionView');
 const ClopsStream = require('./ClopsStream');
 
 // Initialize MITM Stream
-const stream = new ClopsStream({ url: 'ws://localhost:9090/ws' });
+const stream = new ClopsStream({ url: 'ws:// ' + HOSTNAME_PORT + ' /ws' });
 stream.createConnection();
 
 // Setup Routers

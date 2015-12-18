@@ -3,12 +3,14 @@
 const Backbone = require('backbone');
 
 module.exports = Backbone.Model.extend({
-    defaults: {
-        name: null,
-        errorCode: 0,
-        lastGoalVersionAchieved: -1,
-        plan: null,
-        cpuMetrics: []
+    defaults: function() {
+        return {
+            name: null,
+            errorCode: 0,
+            lastGoalVersionAchieved: -1,
+            plan: null,
+            cpuMetrics: []
+        };
     },
 
     handleStatus: function(status) {

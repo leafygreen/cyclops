@@ -3,12 +3,14 @@
 const Backbone = require('backbone');
 
 module.exports = Backbone.Model.extend({
-    defaults: {
-        name: null,
-        tags: [],
-        diskMetrics: [],
-        diskSpaceUsed: null,
-        diskSpaceFree: null
+    defaults: function() {
+        return {
+            name: null,
+            tags: [],
+            diskMetrics: [],
+            diskSpaceUsed: null,
+            diskSpaceFree: null
+        };
     },
 
     handleDiskMetrics: function(metrics) {

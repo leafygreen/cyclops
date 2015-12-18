@@ -64,7 +64,7 @@ _.extend(ClopsStream.prototype, {
 
     _trackMessageCount: function() {
         this.messageCount++;
-        if (this.messageCount >= 1) {
+        if (this.messageCount >= 3) {
             this.hasInitialData.resolve();
         }
     },

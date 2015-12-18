@@ -32629,21 +32629,23 @@ var DiskDataCollection = Backbone.Collection.extend({
 });
 
 module.exports = Backbone.Model.extend({
-    defaults: {
-        hostname: null,
-        lastPing: null,
-        logs: [],
-        processMap: {},
-        processDataCollection: new ProcessDataCollection(),
-        diskMap: {},
-        diskDataCollection: new DiskDataCollection(),
-        platform: {},
-        cpuMetrics: [],
-        cpuUtilization: null,
-        kernelUtilization: null,
-        userUtilization: null,
-        idleUtilization: null,
-        diskUtilization: null
+    defaults: function defaults() {
+        return {
+            hostname: null,
+            lastPing: null,
+            logs: [],
+            processMap: {},
+            processDataCollection: new ProcessDataCollection(),
+            diskMap: {},
+            diskDataCollection: new DiskDataCollection(),
+            platform: {},
+            cpuMetrics: [],
+            cpuUtilization: null,
+            kernelUtilization: null,
+            userUtilization: null,
+            idleUtilization: null,
+            diskUtilization: null
+        };
     },
 
     handleMessage: function handleMessage(type, content) {
@@ -32917,12 +32919,6 @@ module.exports = Marionette.ItemView.extend({
         clearTimeout(this.pollerId);
     },
 
-    onRender: function onRender() {
-        this.$el.animate({
-            scrollTop: this.$el.height()
-        });
-    },
-
     closeOverlay: function closeOverlay() {
         this.destroy();
     },
@@ -33026,7 +33022,7 @@ _.extend(ClopsStream.prototype, {
 
     _trackMessageCount: function _trackMessageCount() {
         this.messageCount++;
-        if (this.messageCount >= 1) {
+        if (this.messageCount >= 3) {
             this.hasInitialData.resolve();
         }
     },
@@ -33048,12 +33044,14 @@ module.exports = ClopsStream;
 var Backbone = require('backbone');
 
 module.exports = Backbone.Model.extend({
-    defaults: {
-        name: null,
-        tags: [],
-        diskMetrics: [],
-        diskSpaceUsed: null,
-        diskSpaceFree: null
+    defaults: function defaults() {
+        return {
+            name: null,
+            tags: [],
+            diskMetrics: [],
+            diskSpaceUsed: null,
+            diskSpaceFree: null
+        };
     },
 
     handleDiskMetrics: function handleDiskMetrics(metrics) {
@@ -33072,12 +33070,14 @@ module.exports = Backbone.Model.extend({
 var Backbone = require('backbone');
 
 module.exports = Backbone.Model.extend({
-    defaults: {
-        name: null,
-        errorCode: 0,
-        lastGoalVersionAchieved: -1,
-        plan: null,
-        cpuMetrics: []
+    defaults: function defaults() {
+        return {
+            name: null,
+            errorCode: 0,
+            lastGoalVersionAchieved: -1,
+            plan: null,
+            cpuMetrics: []
+        };
     },
 
     handleStatus: function handleStatus(status) {
@@ -33223,6 +33223,8 @@ module.exports = HandlebarsCompiler.template({"1":function(container,depth0,help
 },{"hbsfy/runtime":27}],41:[function(require,module,exports){
 'use strict';
 
+var HOSTNAME_PORT = 'ec2-54-211-143-56.compute-1.amazonaws.com:9090';
+
 var Backbone = require('backbone');
 var Marionette = require('backbone.marionette');
 Marionette.Renderer = {
@@ -33242,7 +33244,7 @@ var AgentDataCollectionView = require('./AgentDataCollectionView');
 var ClopsStream = require('./ClopsStream');
 
 // Initialize MITM Stream
-var stream = new ClopsStream({ url: 'ws://localhost:9090/ws' });
+var stream = new ClopsStream({ url: 'ws:// ' + HOSTNAME_PORT + ' /ws' });
 stream.createConnection();
 
 // Setup Routers

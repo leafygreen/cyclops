@@ -60,6 +60,7 @@ caption {
   background-color: #494747;
   color: white;
   padding: 10px;
+  margin-bottom: 10px;
 }
 .agent-tile th,
 .agent-tile td {

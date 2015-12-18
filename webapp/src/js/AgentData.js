@@ -15,21 +15,23 @@ const DiskDataCollection = Backbone.Collection.extend({
 });
 
 module.exports = Backbone.Model.extend({
-    defaults: {
-        hostname: null,
-        lastPing: null,
-        logs: [],
-        processMap: {},
-        processDataCollection: new ProcessDataCollection(),
-        diskMap: {},
-        diskDataCollection: new DiskDataCollection(),
-        platform: {},
-        cpuMetrics: [],
-        cpuUtilization: null,
-        kernelUtilization: null,
-        userUtilization: null,
-        idleUtilization: null,
-        diskUtilization: null
+    defaults: function() {
+        return {
+            hostname: null,
+            lastPing: null,
+            logs: [],
+            processMap: {},
+            processDataCollection: new ProcessDataCollection(),
+            diskMap: {},
+            diskDataCollection: new DiskDataCollection(),
+            platform: {},
+            cpuMetrics: [],
+            cpuUtilization: null,
+            kernelUtilization: null,
+            userUtilization: null,
+            idleUtilization: null,
+            diskUtilization: null
+        };
     },
 
     handleMessage: function(type, content) {

@@ -27,12 +27,6 @@ module.exports = Marionette.ItemView.extend({
         clearTimeout(this.pollerId);
     },
 
-    onRender: function() {
-        this.$el.animate({
-            scrollTop: this.$el.height()
-        });
-    },
-
     closeOverlay: function() {
         this.destroy();
     },
