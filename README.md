@@ -8,8 +8,18 @@ ClOps
 Cyclops
 ```
 
-To run:
-* Start a local copy of Cloud/Ops Manager
+# To run:
+* Clone cyclops onto a server near your automation agents
 * Start MITM: cd mitm; go run mitm.go
-* Start a local automation agent changing the conf url to "localhost:9090"
+* Update automation agents to point to cylops host on port 9090, e.g. http://myCyclops:9090
 * Open the webapp: cd webapp/dist; open index.html
+
+# Contributers
+* Dennis Kuczynski, @denniskuczynski
+* Stephen Lee, @sl33nyc
+* Peter Gravelle, @pcgMongo
+
+## Shout Outs
+cyclops is a [MongoDB](http://www.mongodb.com) Skunkworks Project
+
+![Friendly Skunk](http://s12.postimg.org/fxmtcosx9/skunkworks2.jpg)
