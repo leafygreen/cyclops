@@ -8,7 +8,7 @@ ClOps
 Cyclops
 ```
 
-![Screenshot](http://s16.postimg.org/pt23g5yg5/Screen_Shot_2015_12_18_at_2_39_18_PM.png)
+![Screenshot](http://s16.postimg.org/nakzt823p/Screen_Shot_2015_12_18_at_2_39_18_PM.png)
 
 # To run:
 * Clone cyclops onto a server near your automation agents
