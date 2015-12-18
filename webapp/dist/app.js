@@ -33244,7 +33244,7 @@ var AgentDataCollectionView = require('./AgentDataCollectionView');
 var ClopsStream = require('./ClopsStream');
 
 // Initialize MITM Stream
-var stream = new ClopsStream({ url: 'ws:// ' + HOSTNAME_PORT + ' /ws' });
+var stream = new ClopsStream({ url: 'ws://' + HOSTNAME_PORT + '/ws' });
 stream.createConnection();
 
 // Setup Routers
