@@ -12,8 +12,8 @@
   </tr>
   <tr>
     <td>{{lastPing}}</td>
-    <td>{{cpuUtilization}}</td>
-    <td>{{diskUtilization}}</td>
+    <td>{{#if cpuUtilization}}{{cpuUtilization}} %{{else}}...{{/if}}</td>
+    <td>{{#if diskUtilization}}{{diskUtilization}} %{{else}}...{{/if}}</td>
     <td>{{platform.os}} {{platform.arch}}</td>
   </tr>
 </table>
@@ -50,8 +50,8 @@
   {{#each diskDataCollection}}
     <tr>
       <td>{{name}}</td>
-      <td>{{diskSpaceUsed}}</th>
-      <td>{{diskSpaceFree}}</td>
+      <td>{{asGigabytes diskSpaceUsed}}</th>
+      <td>{{asGigabytes diskSpaceFree}}</td>
       <td>{{#each tags}}{{this}} {{else}}No Tags{{/each}}</td>
     </tr>
   {{else}}
@@ -65,15 +65,15 @@
   <table class="cpu-info-table">
     <tr>
       <td>System</td>
-      <td style="color:red;">5%</td>
+      <td style="color:red;">{{#if kernelUtilization}}{{kernelUtilization}} %{{else}}...{{/if}}</td>
     </tr>
     <tr>
       <td>User</td>
-      <td style="color: blue;">5%</td>
+      <td style="color: blue;">{{#if userUtilization}}{{userUtilization}} %{{else}}...{{/if}}</td>
     </tr>
     <tr>
       <td>Idle</td>
-      <td>5%</td>
+      <td>{{#if idleUtilization}}{{idleUtilization}} %{{else}}...{{/if}}</td>
     </tr>
   </table>
   <div class="cpu-info-chart">

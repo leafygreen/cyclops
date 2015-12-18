@@ -25,16 +25,11 @@ module.exports = Backbone.Model.extend({
         diskDataCollection: new DiskDataCollection(),
         platform: {},
         cpuMetrics: [],
-        sampleTime: null,
-        cpuTimeKernel: 0,
-        cpuTimeUser: 0,
-        cpuTimeIdle: 0,
-        cpuTimeNice: 0,
-        cpuTimeIoWait: 0,
-        cpuTimeIrq: 0,
-        cpuTimeSoftIrq: 0,
-        cpuTimeSoftSteal: 0,
-        cpuUtilization: null
+        cpuUtilization: null,
+        kernelUtilization: null,
+        userUtilization: null,
+        idleUtilization: null,
+        diskUtilization: null
     },
 
     handleMessage: function(type, content) {
@@ -59,43 +54,15 @@ module.exports = Backbone.Model.extend({
 
     handleMetricsMessage: function(content) {
         const platform = content.platform;
+        const processCpuMetrics = content.processCpuMetrics;
+        const diskMetrics = content.diskMetrics;
+
+        // acount for missing values on OS X
         const systemCpuMetrics = _.defaults(content.systemCpuMetrics, {
             iowait: 0,
             irq: 0,
             softirq: 0,
             steal: 0
-        });
-        const processCpuMetrics = content.processCpuMetrics;
-        const diskMetrics = content.diskMetrics;
-
-        const prevIdle = this.get('cpuTimeIdle') + this.get('cpuTimeIoWait');
-        const idle = systemCpuMetrics.idle + systemCpuMetrics.iowait;
-
-        const prevNonIdle = this.get('cpuTimeUser') + this.get('cpuTimeKernel') + this.get('cpuTimeNice') + this.get('cpuTimeIrq') + this.get('cpuTimeSoftIrq') + this.get('cpuTimeSteal');
-        const nonIdle = systemCpuMetrics.user + systemCpuMetrics.kernel + systemCpuMetrics.nice + systemCpuMetrics.irq + systemCpuMetrics.softirq + systemCpuMetrics.steal;
-
-        const prevTotal = prevIdle + prevNonIdle;
-        const total = idle + nonIdle;
-
-        // differentiate: actual value minus the previous one
-        const totald = total - prevTotal;
-        const idled = idle - prevIdle;
-
-        const cpuPercentage = ((totald - idled) / totald).toFixed(2);
-
-        this.set('platform', platform);
-        this.get('cpuMetrics').push(systemCpuMetrics);
-        this.set({
-            sampleTime: new Date(systemCpuMetrics.sampleTime).toISOString(),
-            cpuTimeKernel: systemCpuMetrics.kernel,
-            cpuTimeUser: systemCpuMetrics.user,
-            cpuTimeIdle: systemCpuMetrics.idle,
-            cpuTimeNice: systemCpuMetrics.nice,
-            cpuTimeIoWait: systemCpuMetrics.iowait,
-            cpuTimeIrq: systemCpuMetrics.irq,
-            cpuTimeSoftIrq: systemCpuMetrics.softirq,
-            cpuTimeSteal: systemCpuMetrics.steal,
-            cpuUtilization: cpuPercentage
         });
 
         Object.keys(processCpuMetrics).forEach(name => {
@@ -107,6 +74,68 @@ module.exports = Backbone.Model.extend({
             const diskData = this._findOrCreateDiskData(name);
             diskData.handleDiskMetrics(diskMetrics[name]);
         });
+
+        this.set('platform', platform);
+        this.get('cpuMetrics').push(systemCpuMetrics);
+        this._updateCPUUtilization();
+        this.set({
+            cpuUtilization: systemCpuMetrics.cpuUtilization,
+            kernelUtilization: systemCpuMetrics.kernelUtilization,
+            userUtilization: systemCpuMetrics.userUtilization,
+            idleUtilization: systemCpuMetrics.idleUtilization,
+            diskUtilization: this._calculateDiskUtilization()
+        });
+    },
+
+    // http://stackoverflow.com/questions/23367857/accurate-calculation-of-cpu-usage-given-in-percentage-in-linux
+    _updateCPUUtilization: function() {
+        const cpuMetrics = this.get('cpuMetrics');
+        if (cpuMetrics.length < 2) {
+            return null;
+        }
+
+        const current = cpuMetrics[cpuMetrics.length - 1];
+        const prev = cpuMetrics[cpuMetrics.length - 2];
+
+        const prevIdle = prev.idle + prev.iowait;
+        const idle = current.idle + current.iowait;
+
+        const prevKernel = prev.kernel;
+        const kernel = current.kernel;
+
+        const prevUser = prev.user;
+        const user = current.user;
+
+        const prevNonIdle = prevUser + prevKernel + prev.nice + prev.irq + prev.softirq + prev.steal;
+        const nonIdle = user + kernel + current.nice + current.irq + current.softirq + current.steal;
+
+        const prevTotal = prevIdle + prevNonIdle;
+        const total = idle + nonIdle;
+
+        // differentiate: actual value minus the previous one
+        const totald = total - prevTotal;
+        const idled = idle - prevIdle;
+        const kerneld = kernel - prevKernel;
+        const userd = user - prevUser;
+
+        // update current record
+        current.kernelUtilization = ((kerneld / totald) * 100.0);
+        current.userUtilization = ((userd / totald) * 100.0);
+        current.idleUtilization = ((idled / totald) * 100.0);
+        current.cpuUtilization = (((totald - idled) / totald) * 100.0).toFixed(2);
+    },
+
+    _calculateDiskUtilization: function() {
+        let diskSpaceFree = 0;
+        let diskSpaceUsed = 0;
+        this.get('diskDataCollection').each(disk => {
+            diskSpaceFree += disk.get('diskSpaceFree');
+            diskSpaceUsed += disk.get('diskSpaceUsed');
+        });
+
+        if (diskSpaceUsed > 0) {
+            return (diskSpaceUsed / (diskSpaceUsed + diskSpaceFree) * 100.0).toFixed(2);
+        }
     },
 
     _findOrCreateProcessData: function(name) {

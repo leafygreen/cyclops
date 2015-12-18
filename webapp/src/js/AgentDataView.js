@@ -28,7 +28,7 @@ module.exports = Marionette.ItemView.extend({
 
     _drawCpuMetricsChart: function() {
         const series = [{
-            name: 'kernel',
+            name: 'system',
             data: [],
             color: 'red'
         }, {
@@ -38,26 +38,31 @@ module.exports = Marionette.ItemView.extend({
         }];
 
         this.model.get('cpuMetrics').reduce((memo, datum) => {
-            memo[0].data.push({
-                x: datum.sampleTime,
-                y: datum.kernel
-            });
-            memo[1].data.push({
-                x: datum.sampleTime,
-                y: datum.user
-            });
+            if (datum.kernelUtilization && datum.userUtilization) {
+                memo[0].data.push({
+                    x: datum.sampleTime,
+                    y: datum.kernelUtilization
+                });
+                memo[1].data.push({
+                    x: datum.sampleTime,
+                    y: datum.userUtilization
+                });
+            }
+
             return memo;
         }, series);
 
-        var graph = new Rickshaw.Graph({
-            element: this.$('.cpu-info-chart').get(0),
-            width: 600,
-            height: 80,
-            max: 150,
-            series: series,
-            renderer: 'line'
-        });
-        graph.render();
+        if (series[0].data.length) {
+            var graph = new Rickshaw.Graph({
+                element: this.$('.cpu-info-chart').get(0),
+                width: 600,
+                height: 80,
+                max: 125,
+                series: series,
+                renderer: 'line'
+            });
+            graph.render();
+        }
     },
 
     onClickViewLogs: function() {

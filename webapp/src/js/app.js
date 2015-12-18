@@ -4,7 +4,13 @@ const Backbone = require('backbone');
 const Marionette = require('backbone.marionette');
 Marionette.Renderer = {
     render: function(template, data, view) {
-        return template(data);
+        return template(data, {
+            helpers: {
+                asGigabytes: (bytes) => {
+                    return (bytes / (1024 * 1024 * 1024)).toFixed(4) + ' GB';
+                }
+            }
+        });
     }
 };
 

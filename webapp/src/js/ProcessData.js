@@ -8,10 +8,7 @@ module.exports = Backbone.Model.extend({
         errorCode: 0,
         lastGoalVersionAchieved: -1,
         plan: null,
-        cpuMetrics: [],
-        sampleTime: null,
-        cpuTimeKernel: null,
-        cpuTimeUser: null
+        cpuMetrics: []
     },
 
     handleStatus: function(status) {
@@ -24,10 +21,5 @@ module.exports = Backbone.Model.extend({
 
     handleCpuMetrics: function(metrics) {
         this.get('cpuMetrics').push(metrics);
-        this.set({
-            sampleTime: new Date(metrics.sampleTime).toISOString(),
-            cpuTimeKernel: metrics.kernel,
-            cpuTimeUser: metrics.user
-        });
     }
 });
